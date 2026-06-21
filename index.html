@@ -194,7 +194,8 @@
                     utterance.lang = 'fr-FR';
                 }
                 
-                utterance.rate = const voices = window.speechSynthesis.getVoices();
+                utterance.rate = 1.0;
+                const voices = window.speechSynthesis.getVoices();
 let selectedVoice = null;
 
 if (currentLang === 'fr') {
@@ -209,7 +210,7 @@ if (selectedVoice) {
     utterance.voice = selectedVoice;
 }
 
-  window.speechSynthesis.speak(utterance);
+                window.speechSynthesis.speak(utterance);
             } else {
                 alert('Your browser does not support Speech Synthesis.');
             }
