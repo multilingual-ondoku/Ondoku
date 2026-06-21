@@ -195,7 +195,24 @@
                 }
                 
                 utterance.rate = 1.0;
-                window.speechSynthesis.speak(utterance);
+              // 利用可能な声をすべて取得し、より高品質な「Siri」や「Google」などの声を優先してセットする
+const voices = window.speechSynthesis.getVoices();
+let selectedVoice = null;
+
+if (currentLang === 'fr') {
+    // フランス語の高品質な声（Siri、Thomas、Aurelieなど）を探す
+    selectedVoice = voices.find(v => v.lang.startsWith('fr') && (v.name.includes('Siri') || v.name.includes('Premium') || v.name.includes('Enhanced')));
+    if (!selectedVoice) selectedVoice = voices.find(v => v.lang.startsWith('fr'));
+} else if (currentLang === 'en') {
+    // 英語の高品質な声（Siri、Samantha、Danielなど）を探す
+    selectedVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Siri') || v.name.includes('Premium') || v.name.includes('Enhanced')));
+    if (!selectedVoice) selectedVoice = voices.find(v => v.lang.startsWith('en'));
+}
+
+if (selectedVoice) {
+    utterance.voice = selectedVoice;
+}
+  window.speechSynthesis.speak(utterance);
             } else {
                 alert('Your browser does not support Speech Synthesis.');
             }
