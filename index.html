@@ -81,9 +81,11 @@
         }
         button:active { transform: scale(0.98); }
         .btn-play { background-color: #3498db; color: white; }
+        .btn-stop-tts { background-color: #95a5a6; color: white; }
         .btn-youglish { background-color: #f1c40f; color: #2c3e50; }
         .btn-start { background-color: #2ecc71; color: white; }
         .btn-stop { background-color: #e74c3c; color: white; }
+        .btn-play-voice { background-color: #9b59b6; color: white; }
         button:disabled { background-color: #bdc3c7; color: #7f8c8d; cursor: not-allowed; transform: none; }
         .stats {
             display: flex;
@@ -95,7 +97,7 @@
             font-weight: bold;
         }
         .result-wpm { color: #e67e22; font-size: 1.2em; }
-        audio { width: 100%; margin-top: 15px; }
+        audio { display: none; } /* Hide default unstable player */
     </style>
 </head>
 <body>
@@ -119,6 +121,7 @@
         
         <div class="btn-group">
             <button class="btn-play" id="btn-listen">🔊 Listen to Model</button>
+            <button class="btn-stop-tts" id="btn-stop-tts">🛑 Stop Model</button>
             <button class="btn-youglish" id="btn-yg">📺 Search Selected Word on YouGlish</button>
         </div>
     </div>
@@ -138,7 +141,10 @@
             <div class="result-wpm">WPM: <span id="wpm-result">0</span></div>
         </div>
 
-        <audio id="audio-playback" controls></audio>
+        <div class="btn-group" style="margin-top: 15px;">
+            <button class="btn-play-voice" id="btn-play-voice" disabled>▶️ Play Your Voice</button>
+        </div>
+        <audio id="audio-playback" playsinline></audio>
     </div>
 
     <script>
@@ -149,9 +155,11 @@
 
         const textInput = document.getElementById('text-input');
         const btnListen = document.getElementById('btn-listen');
+        const btnStopTts = document.getElementById('btn-stop-tts');
         const btnYg = document.getElementById('btn-yg');
         const btnStart = document.getElementById('btn-start');
         const btnStop = document.getElementById('btn-stop');
+        const btnPlayVoice = document.getElementById('btn-play-voice');
         const wordCountSpan = document.getElementById('word-count');
         const timerSpan = document.getElementById('timer');
         const wpmResultSpan = document.getElementById('wpm-result');
@@ -161,10 +169,19 @@
         let timerInterval;
         let mediaRecorder;
         let audioChunks = [];
+        let selectedTextViaTap = "";
+
+        // Keep track of highlighted text inside textarea for iOS
+        textInput.addEventListener('mouseup', saveSelection);
+        textInput.addEventListener('touchend', saveSelection);
+        function saveSelection() {
+            selectedTextViaTap = textInput.value.substring(textInput.selectionStart, textInput.selectionEnd);
+        }
 
         document.querySelectorAll('input[name="language"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 textInput.value = sampleTexts[e.target.value];
+                selectedTextViaTap = "";
             });
         });
 
@@ -172,23 +189,17 @@
             return document.querySelector('input[name="language"]:checked').value;
         }
 
-        // 1. Text-to-Speech (TTS) Fixed
+        // 1. Text-to-Speech (TTS) Control
         btnListen.addEventListener('click', () => {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
+                window.speechSynthesis.cancel(); // Reset
                 
                 const utterance = new SpeechSynthesisUtterance(textInput.value);
                 const currentLang = getSelectedLanguage();
                 
-                if (currentLang === 'en') {
-                    utterance.lang = 'en-US';
-                } else if (currentLang === 'fr') {
-                    utterance.lang = 'fr-FR';
-                }
-                
+                utterance.lang = currentLang === 'en' ? 'en-US' : 'fr-FR';
                 utterance.rate = 1.0;
 
-                // Force iOS to find your favorite premium voices on button click
                 const allVoices = window.speechSynthesis.getVoices();
                 if (currentLang === 'fr') {
                     const audrey = allVoices.find(v => v.name.includes('Audrey'));
@@ -199,14 +210,22 @@
                 }
 
                 window.speechSynthesis.speak(utterance);
-            } else {
-                alert('Your browser does not support Speech Synthesis.');
             }
         });
 
-        // 2. YouGlish Integration
+        // STOP TTS Button
+        btnStopTts.addEventListener('click', () => {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+        });
+
+        // 2. YouGlish Integration Fixed for iOS
         btnYg.addEventListener('click', () => {
-            const selectedText = window.getSelection().toString().trim();
+            let selectedText = window.getSelection().toString().trim();
+            if (!selectedText) {
+                selectedText = selectedTextViaTap.trim();
+            }
             const currentLang = getSelectedLanguage();
 
             if (!selectedText) {
@@ -215,15 +234,14 @@
             }
 
             const langParam = currentLang === 'en' ? 'english' : 'french';
-            const encodeWord = encodeURIComponent(selectedText);
-            const youglishUrl = `https://youglish.com/pronounce/${encodeWord}/${langParam}`;
-
+            const youglishUrl = `https://youglish.com/pronounce/${encodeURIComponent(selectedText)}/${langParam}`;
             window.open(youglishUrl, '_blank');
         });
 
-        // 3. Start Recording & Timer
+        // 3. Start Recording
         btnStart.addEventListener('click', async () => {
             audioChunks = [];
+            btnPlayVoice.disabled = true;
             
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -235,12 +253,8 @@
 
                 mediaRecorder.onstop = () => {
                     const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    audioPlayback.src = audioUrl;
-                    
-                    // Bypass iOS mute restriction on load
-                    audioPlayback.muted = false;
-                    audioPlayback.volume = 1.0;
+                    audioPlayback.src = URL.createObjectURL(audioBlob);
+                    btnPlayVoice.disabled = false; // Enable custom play button
                 };
 
                 mediaRecorder.start();
@@ -254,19 +268,16 @@
                 btnStart.disabled = true;
                 btnStop.disabled = false;
                 textInput.disabled = true;
-                document.querySelectorAll('input[name="language"]').forEach(r => r.disabled = true);
 
             } catch (err) {
                 alert('Microphone access denied or not found.');
-                console.error(err);
             }
         });
 
         // 4. Stop Recording & Calculate WPM
         btnStop.addEventListener('click', () => {
             clearInterval(timerInterval);
-            const endTime = performance.now();
-            const totalTimeSeconds = (endTime - startTime) / 1000;
+            const totalTimeSeconds = (performance.now() - startTime) / 1000;
             timerSpan.textContent = totalTimeSeconds.toFixed(1);
 
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
@@ -280,29 +291,30 @@
 
             if (text !== "") {
                 if (currentLang === 'fr') {
-                    const normalizedText = text.replace(/['’\-–]/g, ' ');
-                    wordCount = normalizedText.split(/\s+/).length;
+                    wordCount = text.replace(/['’\-–]/g, ' ').split(/\s+/).length;
                 } else {
                     wordCount = text.split(/\s+/).length;
                 }
             }
             
             wordCountSpan.textContent = wordCount;
-
-            if (wordCount > 0 && totalTimeSeconds > 0) {
-                const wpm = Math.round((wordCount / totalTimeSeconds) * 60);
-                wpmResultSpan.textContent = wpm;
-            } else {
-                wpmResultSpan.textContent = 0;
-            }
+            wpmResultSpan.textContent = (wordCount > 0 && totalTimeSeconds > 0) ? Math.round((wordCount / totalTimeSeconds) * 60) : 0;
 
             btnStart.disabled = false;
             btnStop.disabled = true;
             textInput.disabled = false;
-            document.querySelectorAll('input[name="language"]').forEach(r => r.disabled = false);
         });
-        
-        // Ensure iOS loads audio voices correctly on page focus
+
+        // 5. Unmute & Play Recorded Voice Forced Button for iOS
+        btnPlayVoice.addEventListener('click', () => {
+            if (audioPlayback.src) {
+                audioPlayback.muted = false;
+                audioPlayback.volume = 1.0;
+                audioPlayback.play().catch(err => console.log("Playback error:", err));
+            }
+        });
+
+        // Pre-load system voices on page load
         if ('speechSynthesis' in window) {
             window.speechSynthesis.getVoices();
         }
