@@ -103,7 +103,6 @@
     <h1>🗣️ Reading Trainer Pro</h1>
     <p class="subtitle">English & French Practice with YouGlish Integration</p>
 
-    <!-- 1. Language Selection and Text Input -->
     <div class="card">
         <h3>1. Select Language & Enter Text</h3>
         
@@ -124,7 +123,6 @@
         </div>
     </div>
 
-    <!-- 2. Reading & Recording Area -->
     <div class="card">
         <h3>2. Record & Measure Your Reading</h3>
         <p>Click "Start" to begin reading aloud, and click "Stop" when you are finished.</p>
@@ -134,25 +132,21 @@
             <button class="btn-stop" id="btn-stop" disabled>⏹️ Stop (Finish)</button>
         </div>
 
-        <!-- Measurement Results -->
         <div class="stats">
             <div>Words: <span id="word-count">0</span> words</div>
             <div>Time: <span id="timer">0.0</span> sec</div>
             <div class="result-wpm">WPM: <span id="wpm-result">0</span></div>
         </div>
 
-        <!-- Audio Playback -->
         <audio id="audio-playback" controls></audio>
     </div>
 
     <script>
-        // Sample text definitions
         const sampleTexts = {
             en: "💡 Practice makes perfect! Select any word in this text and click the YouGlish button to see how native speakers pronounce it.",
             fr: "💡 Vouloir, c'est pouvoir! Sélectionnez un mot et cliquez sur le bouton YouGlish pour voir comment les natifs le prononcent."
         };
 
-        // Element selection
         const textInput = document.getElementById('text-input');
         const btnListen = document.getElementById('btn-listen');
         const btnYg = document.getElementById('btn-yg');
@@ -168,19 +162,17 @@
         let mediaRecorder;
         let audioChunks = [];
 
-        // Auto-change text on language switch
         document.querySelectorAll('input[name="language"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 textInput.value = sampleTexts[e.target.value];
             });
         });
 
-        // Get currently selected language
         function getSelectedLanguage() {
             return document.querySelector('input[name="language"]:checked').value;
         }
 
-        // 1. Text-to-Speech (TTS)
+        // 1. Text-to-Speech (TTS) Fixed
         btnListen.addEventListener('click', () => {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
@@ -195,21 +187,16 @@
                 }
                 
                 utterance.rate = 1.0;
-                // 【最も確実な方法】ボタンが押された瞬間に、今あるすべての声から直接探す
-const allVoices = window.speechSynthesis.getVoices();
 
-if (currentLang === 'fr') {
-    // Audreyを最優先で探し、名前が部分一致したらそれを強制セット
-    const audrey = allVoices.find(v => v.name.includes('Audrey'));
-    if (audrey) utterance.voice = audrey;
-} else if (currentLang === 'en') {
-    // Zoeを最優先で探し、名前が部分一致したらそれを強制セット
-    const zoe = allVoices.find(v => v.name.includes('Zoe'));
-    if (zoe) utterance.voice = zoe;
-}
-
-// 声の設定が終わったあとに喋らせる
-window.speechSynthesis.speak(utterance);
+                // Force iOS to find your favorite premium voices on button click
+                const allVoices = window.speechSynthesis.getVoices();
+                if (currentLang === 'fr') {
+                    const audrey = allVoices.find(v => v.name.includes('Audrey'));
+                    if (audrey) utterance.voice = audrey;
+                } else if (currentLang === 'en') {
+                    const zoe = allVoices.find(v => v.name.includes('Zoe'));
+                    if (zoe) utterance.voice = zoe;
+                }
 
                 window.speechSynthesis.speak(utterance);
             } else {
@@ -250,6 +237,10 @@ window.speechSynthesis.speak(utterance);
                     const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                     const audioUrl = URL.createObjectURL(audioBlob);
                     audioPlayback.src = audioUrl;
+                    
+                    // Bypass iOS mute restriction on load
+                    audioPlayback.muted = false;
+                    audioPlayback.volume = 1.0;
                 };
 
                 mediaRecorder.start();
@@ -289,11 +280,9 @@ window.speechSynthesis.speak(utterance);
 
             if (text !== "") {
                 if (currentLang === 'fr') {
-                    // Adjust word count for French apostrophes and hyphens
                     const normalizedText = text.replace(/['’\-–]/g, ' ');
                     wordCount = normalizedText.split(/\s+/).length;
                 } else {
-                    // Standard space-split for English
                     wordCount = text.split(/\s+/).length;
                 }
             }
@@ -312,6 +301,11 @@ window.speechSynthesis.speak(utterance);
             textInput.disabled = false;
             document.querySelectorAll('input[name="language"]').forEach(r => r.disabled = false);
         });
+        
+        // Ensure iOS loads audio voices correctly on page focus
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.getVoices();
+        }
     </script>
 </body>
 </html>
