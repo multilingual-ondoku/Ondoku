@@ -195,20 +195,21 @@
                 }
                 
                 utterance.rate = 1.0;
-                const voices = window.speechSynthesis.getVoices();
-let selectedVoice = null;
+                // 【最も確実な方法】ボタンが押された瞬間に、今あるすべての声から直接探す
+const allVoices = window.speechSynthesis.getVoices();
 
 if (currentLang === 'fr') {
-    selectedVoice = voices.find(v => v.lang.startsWith('fr') && v.name.includes('Audrey'));
-    if (!selectedVoice) selectedVoice = voices.find(v => v.lang.startsWith('fr'));
+    // Audreyを最優先で探し、名前が部分一致したらそれを強制セット
+    const audrey = allVoices.find(v => v.name.includes('Audrey'));
+    if (audrey) utterance.voice = audrey;
 } else if (currentLang === 'en') {
-    selectedVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Zoe'));
-    if (!selectedVoice) selectedVoice = voices.find(v => v.lang.startsWith('en'));
+    // Zoeを最優先で探し、名前が部分一致したらそれを強制セット
+    const zoe = allVoices.find(v => v.name.includes('Zoe'));
+    if (zoe) utterance.voice = zoe;
 }
 
-if (selectedVoice) {
-    utterance.voice = selectedVoice;
-}
+// 声の設定が終わったあとに喋らせる
+window.speechSynthesis.speak(utterance);
 
                 window.speechSynthesis.speak(utterance);
             } else {
