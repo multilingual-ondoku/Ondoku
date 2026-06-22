@@ -15,20 +15,6 @@
         }
         h1 { text-align: center; color: #2c3e50; margin-bottom: 5px; font-size: 24px; }
         
-        /* Debug Voice Inspector Box */
-        .voice-inspector {
-            background: #edf2f7;
-            border: 2px solid #cbd5e0;
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 12px;
-        }
-        .voice-inspector h4 { margin: 0 0 5px 0; color: #4a5568; }
-        .voice-list-grid { display: flex; flex-wrap: wrap; gap: 5px; }
-        .voice-tag { background: #fff; padding: 3px 8px; border-radius: 4px; border: 1px solid #e2e8f0; font-weight: bold; color: #4a5568; }
-        .voice-tag.active { background: #2ecc71; color: white; border-color: #27ae60; }
-
         .tabs {
             display: flex;
             gap: 10px;
@@ -176,7 +162,7 @@
             transform: rotateY(180deg);
         }
         .card-fr { font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
-        .card-en { font-size: 20px; font-weight: 500; color: #ecf0f1; }
+        .card-en { font-size: 20px; font-500; color: #ecf0f1; }
         
         .card-controls {
             display: flex;
@@ -203,12 +189,6 @@
 
     <h1>📇 French Chunk & Verb Learner</h1>
     
-    <!-- Debug Voice Box -->
-    <div class="voice-inspector">
-        <h4>🎙️ Detected French Voices (Safari Available):</h4>
-        <div class="voice-list-grid" id="detected-voice-list">Loading device voices...</div>
-    </div>
-
     <div class="total-counter" id="total-database-counter">Loaded: 0 Items from storage</div>
     
     <div class="tabs">
@@ -217,7 +197,6 @@
         <button class="tab-btn" onclick="switchTab('card-panel')">📇 Flashcards</button>
     </div>
 
-    <!-- 1. Input Panel -->
     <div id="input-panel" class="panel active">
         <div class="chunk-block">
             <h3>Paste New ChatGPT Output</h3>
@@ -228,14 +207,12 @@
         </div>
     </div>
 
-    <!-- 2. List Panel -->
     <div id="list-panel" class="panel">
         <div id="list-container">
             <p style="text-align: center; color: #7f8c8d; padding: 20px;">No data loaded. Go to "Add Data" tab first!</p>
         </div>
     </div>
 
-    <!-- 3. Card Panel -->
     <div id="card-panel" class="panel">
         <div id="card-view-wrapper" style="display: none;">
             <div class="card-container" onclick="toggleCardFlip()">
@@ -268,41 +245,10 @@
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedData();
             renderListView();
-            initVoiceListing();
-        });
-
-        function initVoiceListing() {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.getVoices();
-                window.speechSynthesis.onvoiceschanged = renderVoiceTags;
-                setTimeout(renderVoiceTags, 500); 
             }
-        }
-
-        function renderVoiceTags() {
-            if (!('speechSynthesis' in window)) return;
-            const voices = window.speechSynthesis.getVoices();
-            
-            // Only capture French speakers or explicit iOS matches
-            const frVoices = voices.filter(v => v.lang.toLowerCase().startsWith('fr') || v.name.toLowerCase().includes('amélie') || v.name.toLowerCase().includes('amelie'));
-            const container = document.getElementById('detected-voice-list');
-            
-            if (frVoices.length === 0) {
-                container.innerHTML = '<span style="color:#e74c3c;">No French voices mapped.</span>';
-                return;
-            }
-
-            let currentSelection = getBestFrenchVoice(voices);
-
-            container.innerHTML = '';
-            frVoices.forEach(v => {
-                let isActive = currentSelection && currentSelection.name === v.name;
-                // Avoid rendering duplicate tags for cleaner tracking
-                if (!container.innerHTML.includes(`>${v.name}<`)) {
-                    container.innerHTML += `<span class="voice-tag ${isActive ? 'active' : ''}">${v.name}</span>`;
-                }
-            });
-        }
+        });
 
         function switchTab(panelId) {
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -316,28 +262,6 @@
             }
         }
 
-        function getBestFrenchVoice(voices) {
-            // Absolute Lock: Target "Amélie" or "Amelie" since iOS Safari explicitly verified it's ready
-            let match = voices.find(v => {
-                const n = v.name.toLowerCase();
-                return n.includes('amélie') || n.includes('amelie');
-            });
-            if (match) return match;
-
-            // Secondary backups just in case
-            const frVoices = voices.filter(v => v.lang.toLowerCase().startsWith('fr'));
-            match = frVoices.find(v => v.name.toLowerCase().includes('aurélie') || v.name.toLowerCase().includes('aurelie'));
-            if (match) return match;
-
-            // Pure defensive fallbacks to eliminate Eloquence jokes
-            const cleanFr = frVoices.filter(v => {
-                const n = v.name.toLowerCase();
-                return !n.includes('shelley') && !n.includes('grandma') && !n.includes('rocko') && !n.includes('eddy');
-            });
-
-            return cleanFr.length > 0 ? cleanFr[0] : (frVoices.length > 0 ? frVoices[0] : null);
-        }
-
         function speakFrench(text) {
             if (!('speechSynthesis' in window)) return;
             window.speechSynthesis.cancel(); 
@@ -347,18 +271,38 @@
 
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'fr-FR';
-            utterance.rate = 0.88; // Slightly dialed back for maximum clear study pacing
-            utterance.pitch = 1.0; 
+            utterance.rate = 0.88; 
 
             const voices = window.speechSynthesis.getVoices();
-            const targetVoice = getBestFrenchVoice(voices);
+            // 【アメリちゃん一本釣り】
+            const amelie = voices.find(v => {
+                const n = v.name.toLowerCase();
+                return n.includes('amélie') || n.includes('amelie');
+            });
 
-            if (targetVoice) {
-                utterance.voice = targetVoice;
+            if (amelie) {
+                utterance.voice = amelie;
+            } else {
+                const cleanFr = voices.filter(v => v.lang.toLowerCase().startsWith('fr') && !v.name.toLowerCase().includes('shelley') && !v.name.toLowerCase().includes('grandma'));
+                if (cleanFr.length > 0) utterance.voice = cleanFr[0];
             }
 
             window.speechSynthesis.speak(utterance);
-            renderVoiceTags();
+        }
+
+        function speakEnglish(text) {
+            if (!('speechSynthesis' in window)) return;
+            // カードの裏面（英語）を読み上げる用
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.95;
+
+            const voices = window.speechSynthesis.getVoices();
+            // 🌟【Zoeちゃん一本釣り】
+            const zoe = voices.find(v => v.name.toLowerCase().includes('zoe'));
+            if (zoe) utterance.voice = zoe;
+
+            window.speechSynthesis.speak(utterance);
         }
 
         function loadSavedData() {
@@ -405,7 +349,6 @@
             }
 
             flashcardQueue = []; 
-
             const blocks = rawText.split(/\n(?=(?:\d+\.\s+[A-ZÀ-ÿa-z]|J’|Je|Tu|Il|Elle|Nous|Vous|Ils))/g);
 
             blocks.forEach(block => {
@@ -434,12 +377,10 @@
                 } 
                 else if (lines.some(l => l.startsWith('[')) || lines.some(l => l.match(/^\d+\./))) {
                     let frChunk = firstLine;
-                    
                     if (globalData.chunks.some(c => c.fr === frChunk)) return;
 
                     let ipa = lines.find(l => l.startsWith('[')) || '';
                     let katakana = lines.find(l => l.match(/^[\u30a0-\u30ff\u3040-\u309f\u30fc、・\s〜~]+$/)) || '';
-                    
                     let noteLines = lines.filter(l => l.startsWith('※') || l.startsWith('•'));
                     let note = noteLines.join('\n');
 
@@ -454,7 +395,6 @@
 
             saveData();
             renderListView();
-            
             document.getElementById('raw-data').value = ''; 
             alert("Added successfully!");
             switchTab('list-panel');
@@ -534,7 +474,6 @@
                 flashcardQueue.sort(() => Math.random() - 0.5);
                 currentCardIndex = 0;
             }
-
             showCard();
         }
 
@@ -560,7 +499,15 @@
         }
 
         function toggleCardFlip() {
-            document.getElementById('flashcard').classList.toggle('flipped');
+            const fc = document.getElementById('flashcard');
+            fc.classList.toggle('flipped');
+            
+            // カードが裏返って英語が見えたら、Zoeちゃんに英語を喋らせる
+            if (fc.classList.contains('flipped') && currentCardIndex < flashcardQueue.length) {
+                setTimeout(() => {
+                    speakEnglish(flashcardQueue[currentCardIndex].en);
+                }, 200);
+            }
         }
 
         function speakCardCurrent() {
