@@ -247,7 +247,7 @@
             loadSavedData();
             renderListView();
             
-            // Critical for iOS Safari: trigger initial voice population
+            // Force-load voices multiple times to crack iOS cache stubbornness
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.getVoices();
                 if (window.speechSynthesis.onvoiceschanged !== undefined) {
@@ -268,7 +268,7 @@
             }
         }
 
-        // --- HARDCORE VOICE FILTERING LOGIC ---
+        // --- DIRECT BOOTLEG INJECTION FOR AURÉLIE ---
         function speakFrench(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); 
@@ -276,31 +276,30 @@
                 let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim(); 
                 const utterance = new SpeechSynthesisUtterance(cleanText);
                 utterance.lang = 'fr-FR';
-                utterance.rate = 0.95; 
+                utterance.rate = 0.90; // Natural pacing
                 utterance.pitch = 1.0; 
 
                 const voices = window.speechSynthesis.getVoices();
                 
-                // Tier 1: Look explicitly for Audrey (case-insensitive)
-                let selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && v.name.toLowerCase().includes('audrey'));
+                // Absolute Priority: Target Aurélie or Audrey downloaded premium assets directly
+                let selectedVoice = voices.find(v => {
+                    const name = v.name.toLowerCase();
+                    return v.lang.toLowerCase().startsWith('fr') && (name.includes('aurélie') || name.includes('aurelie') || name.includes('audrey'));
+                });
                 
-                // Tier 2: If Audrey isn't exposing her name properly to Safari, find ANY Premium/Enhanced French Female voice
+                // Fallback 1: Siri female high-quality
                 if (!selectedVoice) {
-                    selectedVoice = voices.find(v => {
-                        const name = v.name.toLowerCase();
-                        const isFr = v.lang.toLowerCase().startsWith('fr');
-                        return isFr && (name.includes('siri') || name.includes('aurélie') || name.includes('google') || name.includes('premium') || name.includes('enhanced'));
-                    });
+                    selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && v.name.toLowerCase().includes('siri'));
                 }
 
-                // Tier 3: Hard filter to exclude male default voices like 'Thomas' or 'Nicolas' if possible
+                // Fallback 2: Any premium tagged engine
+                if (!selectedVoice) {
+                    selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced')));
+                }
+
+                // Fallback 3: Standard female bypass (skip default robot Thomas/Nicolas if present)
                 if (!selectedVoice) {
                     selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && !v.name.toLowerCase().includes('thomas') && !v.name.toLowerCase().includes('nicolas'));
-                }
-
-                // Tier 4: True generic fallback
-                if (!selectedVoice) {
-                    selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr'));
                 }
 
                 if (selectedVoice) {
