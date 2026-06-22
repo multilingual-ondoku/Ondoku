@@ -77,7 +77,7 @@
         button:active { transform: scale(0.98); }
         .btn-play { background-color: #3498db; color: white; }
         .btn-stop-tts { background-color: #95a5a6; color: white; }
-        .btn-youglish { background-color: #f1c40f; color: #2c3e50; font-size: 16px; border: 2px solid #f39c12; }
+        .btn-youglish { background-color: #f1c40f; color: #2c3e50; }
         .btn-start { background-color: #2ecc71; color: white; }
         .btn-stop { background-color: #e74c3c; color: white; }
         .btn-play-voice { background-color: #9b59b6; color: white; }
@@ -100,7 +100,6 @@
     <h1>🗣️ Reading Trainer Pro</h1>
     <p class="subtitle">English & French Practice with YouGlish Integration</p>
 
-    <!-- 1. Language & Input -->
     <div class="card">
         <h3>1. Select Language & Enter Text</h3>
         
@@ -115,16 +114,12 @@
         <textarea id="text-input" placeholder="Type or paste your text here..."></textarea>
         
         <div class="btn-group">
+            <button class="btn-play" id="btn-listen">🔊 Listen to Model</button>
+            <button class="btn-stop-tts" id="btn-stop-tts">⏸️ Pause / Resume</button>
             <button class="btn-youglish" id="btn-yg">📺 Search Selected Word on YouGlish</button>
-        </div>
-        
-        <div class="btn-group" style="margin-top: 15px; opacity: 0.8;">
-            <button class="btn-play" id="btn-listen" style="font-size: 13px; padding: 8px;">🔊 Robot Listen</button>
-            <button class="btn-stop-tts" id="btn-stop-tts" style="font-size: 13px; padding: 8px;">⏸️ Pause / Resume</button>
         </div>
     </div>
 
-    <!-- 2. Recording & Real-time Stats -->
     <div class="card">
         <h3>2. Record & Measure Your Reading</h3>
         <p>Click "Start" to begin reading aloud, and click "Stop" when you are finished.</p>
@@ -174,8 +169,10 @@
         document.querySelectorAll('input[name="language"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 selectedTextViaTap = "";
-                updateWordCount();
-                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    window.speechSynthesis.getVoices(); 
+                }
             });
         });
 
@@ -183,27 +180,7 @@
             return document.querySelector('input[name="language"]:checked').value;
         }
 
-        // Live Word Counter Function
-        function updateWordCount() {
-            const text = textInput.value.trim();
-            const currentLang = getSelectedLanguage();
-            let wordCount = 0;
-
-            if (text !== "") {
-                if (currentLang === 'fr') {
-                    wordCount = text.replace(/['’\-–]/g, ' ').split(/\s+/).length;
-                } else {
-                    wordCount = text.split(/\s+/).length;
-                }
-            }
-            wordCountSpan.textContent = wordCount;
-            return wordCount;
-        }
-
-        // Keep counting as user types
-        textInput.addEventListener('input', updateWordCount);
-
-        // 1. TTS Control (Fallback Option)
+        // 1. TTS Control with Aggressive Voice Matching
         btnListen.addEventListener('click', () => {
             if ('speechSynthesis' in window) {
                 if (window.speechSynthesis.paused) {
@@ -221,12 +198,36 @@
                 utterance.rate = 1.0;
 
                 const allVoices = window.speechSynthesis.getVoices();
+                
                 if (currentLang === 'fr') {
+                    // Search for Audrey case-insensitive
                     const audrey = allVoices.find(v => v.lang.toLowerCase().startsWith('fr') && v.name.toLowerCase().includes('audrey'));
-                    if (audrey) utterance.voice = audrey;
+                    if (audrey) {
+                        utterance.voice = audrey;
+                    } else {
+                        // Advanced fallback: look for premium/enhanced French voices first
+                        const premiumFr = allVoices.find(v => v.lang.toLowerCase().startsWith('fr') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced') || v.name.toLowerCase().includes('siri')));
+                        if (premiumFr) {
+                            utterance.voice = premiumFr;
+                        } else {
+                            const anyFr = allVoices.find(v => v.lang.toLowerCase().startsWith('fr'));
+                            if (anyFr) utterance.voice = anyFr;
+                        }
+                    }
                 } else if (currentLang === 'en') {
+                    // Search for Zoe case-insensitive
                     const zoe = allVoices.find(v => v.lang.toLowerCase().startsWith('en') && v.name.toLowerCase().includes('zoe'));
-                    if (zoe) utterance.voice = zoe;
+                    if (zoe) {
+                        utterance.voice = zoe;
+                    } else {
+                        const premiumEn = allVoices.find(v => v.lang.toLowerCase().startsWith('en') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced') || v.name.toLowerCase().includes('siri')));
+                        if (premiumEn) {
+                            utterance.voice = premiumEn;
+                        } else {
+                            const anyEn = allVoices.find(v => v.lang.toLowerCase().startsWith('en'));
+                            if (anyEn) utterance.voice = anyEn;
+                        }
+                    }
                 }
 
                 window.speechSynthesis.speak(utterance);
@@ -260,7 +261,7 @@
             window.open(`https://youglish.com/pronounce/${encodeURIComponent(selectedText)}/${langParam}`, '_blank');
         });
 
-        // 3. Start Recording with Live Stats Update
+        // 3. Start Recording
         btnStart.addEventListener('click', async () => {
             audioChunks = [];
             btnPlayVoice.disabled = true;
@@ -286,20 +287,12 @@
                     btnPlayVoice.disabled = false;
                 };
 
-                // Word count is fixed at the moment of pressing Start
-                const totalWords = updateWordCount();
-
                 mediaRecorder.start(10);
                 startTime = performance.now();
                 
                 timerInterval = setInterval(() => {
                     const elapsed = (performance.now() - startTime) / 1000;
                     timerSpan.textContent = elapsed.toFixed(1);
-                    
-                    // Live WPM calculation during recording!
-                    if (elapsed > 0 && totalWords > 0) {
-                        wpmResultSpan.textContent = Math.round((totalWords / elapsed) * 60);
-                    }
                 }, 100);
 
                 btnStart.disabled = true;
@@ -322,8 +315,20 @@
                 mediaRecorder.stream.getTracks().forEach(track => track.stop());
             }
 
-            const totalWords = updateWordCount();
-            wpmResultSpan.textContent = (totalWords > 0 && totalTimeSeconds > 0) ? Math.round((totalWords / totalTimeSeconds) * 60) : 0;
+            const text = textInput.value.trim();
+            const currentLang = getSelectedLanguage();
+            let wordCount = 0;
+
+            if (text !== "") {
+                if (currentLang === 'fr') {
+                    wordCount = text.replace(/['’\-–]/g, ' ').split(/\s+/).length;
+                } else {
+                    wordCount = text.split(/\s+/).length;
+                }
+            }
+            
+            wordCountSpan.textContent = wordCount;
+            wpmResultSpan.textContent = (wordCount > 0 && totalTimeSeconds > 0) ? Math.round((wordCount / totalTimeSeconds) * 60) : 0;
 
             btnStart.disabled = false;
             btnStop.disabled = true;
@@ -340,10 +345,14 @@
         });
 
         function loadVoicesForced() {
-            if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.getVoices();
+            }
         }
         loadVoicesForced();
-        if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = loadVoicesForced;
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = loadVoicesForced;
+        }
     </script>
 </body>
 </html>
