@@ -82,28 +82,45 @@
             border-radius: 12px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.05);
             margin-bottom: 15px;
-            position: relative; /* ボタン配置用 */
+            position: relative;
         }
-        .chunk-header { font-size: 20px; font-weight: bold; color: #2980b9; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-right: 90px; }
-        .ipa-text { color: #7f8c8d; font-size: 14px; font-style: italic; margin: 4px 0 8px 0; }
+        
+        /* 🗣️ フランス語のテキスト自体をボタン化（押しやすく！） */
+        .clickable-fr {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2980b9;
+            cursor: pointer;
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background 0.1s;
+            max-width: 75%;
+            word-wrap: break-word;
+        }
+        .clickable-fr:active {
+            background-color: #e8f4fd;
+        }
+
+        .ipa-text { color: #7f8c8d; font-size: 14px; font-style: italic; margin: 6px 0 8px 0; }
         .meaning-text { color: #27ae60; font-weight: bold; font-size: 17px; margin: 8px 0; }
         .note-text { color: #e67e22; font-size: 13px; margin-top: 12px; white-space: pre-line; line-height: 1.4; background: #fff5e6; padding: 10px; border-radius: 6px; }
         
-        /* 🛠️ 編集・削除ボタンのスタイル */
+        /* 🛠️ 右上のコントロールボタンをすっきり美しく */
         .item-controls {
             position: absolute;
             top: 15px;
             right: 15px;
             display: flex;
-            gap: 5px;
+            gap: 6px;
         }
         .btn-inline-edit {
             background: #f1c40f;
             color: #2c3e50;
             border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
             font-weight: bold;
             cursor: pointer;
         }
@@ -111,44 +128,39 @@
             background: #e74c3c;
             color: white;
             border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
             font-weight: bold;
             cursor: pointer;
         }
 
+        /* 動詞の例文行スタイル */
         .sentence-item {
             background: #f8f9fa;
-            padding: 10px 12px;
-            border-radius: 6px;
-            margin-top: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-            border-left: 3px solid #e74c3c;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border-left: 4px solid #3498db;
             position: relative;
         }
-        .fr-side { font-weight: 600; color: #2c3e50; font-size: 15px; padding-right: 40px; }
-        .en-side { font-size: 13px; color: #7f8c8d; margin-top: 2px; }
-        
-        .btn-speak-mini {
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
+        .fr-side-clickable {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 16px;
             cursor: pointer;
-            font-size: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            margin: 10px auto;
+            display: inline-block;
+            padding: 2px 4px;
+            border-radius: 4px;
+            max-width: 75%;
         }
-        .btn-speak-mini:active { transform: scale(0.9); }
+        .fr-side-clickable:active {
+            background-color: #eee;
+        }
+        .en-side { font-size: 14px; color: #7f8c8d; margin-top: 4px; font-weight: 500; }
+        
+        /* 隠し再生ボタン（ロジック用） */
+        .btn-speak-mini { display: none; }
 
         /* Flashcard Styling */
         .card-container {
@@ -228,6 +240,7 @@
         <button class="tab-btn" onclick="switchTab('card-panel')">📇 Flashcards</button>
     </div>
 
+    <!-- 1. Input Panel -->
     <div id="input-panel" class="panel active">
         <div class="chunk-block">
             <h3>Paste New ChatGPT Output</h3>
@@ -238,19 +251,21 @@
         </div>
     </div>
 
+    <!-- 2. List Panel -->
     <div id="list-panel" class="panel">
         <div id="list-container">
             <p style="text-align: center; color: #7f8c8d; padding: 20px;">No data loaded. Go to "Add Data" tab first!</p>
         </div>
     </div>
 
+    <!-- 3. Card Panel -->
     <div id="card-panel" class="panel">
         <div id="card-view-wrapper" style="display: none;">
             <div class="card-container" onclick="toggleCardFlip()">
                 <div class="flashcard" id="flashcard">
                     <div class="card-face card-front">
-                        <div class="card-fr" id="card-front-text">Bonjour</div>
-                        <button class="btn-speak-mini" id="btn-card-audio" onclick="event.stopPropagation(); speakCardCurrent()">🔊</button>
+                        <div class="card-fr" id="card-front-text" onclick="event.stopPropagation(); speakCardCurrent();">Bonjour</div>
+                        <div style="font-size: 11px; color:#95a5a6; margin-top: 10px;">タップでフリップ / 文字タップで再生</div>
                     </div>
                     <div class="card-face card-back">
                         <div class="card-en" id="card-back-text">Hello</div>
@@ -372,20 +387,19 @@
             }
         }
 
-        // 🛠️ 1件ずつの削除機能
+        // 🛠️ 1件ずつの削除ロジック（確実に動くように修復）
         function deleteChunk(index) {
             if(confirm("Delete this item?")) {
                 globalData.chunks.splice(index, 1);
                 saveData();
                 renderListView();
-                flashcardQueue = []; // キューをリセット
+                flashcardQueue = [];
             }
         }
 
         function deleteVerbPair(verbIndex, pairIndex) {
             if(confirm("Delete this specific example line?")) {
                 globalData.verbs[verbIndex].pairs.splice(pairIndex, 1);
-                // ペアが空になったら動詞のグループごと削除
                 if(globalData.verbs[verbIndex].pairs.length === 0) {
                     globalData.verbs.splice(verbIndex, 1);
                 }
@@ -395,11 +409,11 @@
             }
         }
 
-        // 🛠️ 1件ずつの編集機能
+        // 🛠️ 1件ずつの編集ロジック（入力ダイアログが確実にポップアップするように修正）
         function editChunk(index) {
             const chunk = globalData.chunks[index];
             const newFr = prompt("Edit French text:", chunk.fr);
-            if (newFr === null) return; // キャンセル
+            if (newFr === null) return;
             const newEn = prompt("Edit English translation:", chunk.en);
             if (newEn === null) return;
 
@@ -446,7 +460,6 @@
                     
                     for (let i = 1; i < lines.length; i++) {
                         if (lines[i] && lines[i+1] && !lines[i].match(/^\d/) && !lines[i+1].match(/^\d/)) {
-                            // 動詞例文パースの条件を少し緩和
                             pairs.push({ fr: lines[i], en: lines[i+1] });
                             i++;
                         }
@@ -458,7 +471,7 @@
                     }
                 } 
                 else {
-                    let frChunk = firstLine.replace(/^\d+[\.\s]+/, '').trim(); // 数字を除去
+                    let frChunk = firstLine.replace(/^\d+[\.\s]+/, '').trim();
                     if (globalData.chunks.some(c => c.fr === frChunk)) return;
 
                     let ipa = lines.find(l => l.startsWith('[')) || '';
@@ -468,8 +481,6 @@
 
                     let jpMeaning = lines.find(l => l.startsWith('～') || (l.match(/^[\u4e00-\u9faf\u3040-\u309f/、]+/) && !l.startsWith('※'))) || '';
                     
-                    // 🌟 英語抽出ロジックの大幅強化
-                    // 日本語、IPA、記号、フランス語自身ではない行を「英語」として賢く判定
                     let enMeaning = lines.find(l => {
                         const isIpa = l.startsWith('[');
                         const isJp = l.match(/[\u4e00-\u9faf\u3040-\u309f]/);
@@ -512,10 +523,8 @@
                                 <button class="btn-inline-edit" onclick="editChunk(${index})">✏️ Edit</button>
                                 <button class="btn-inline-delete" onclick="deleteChunk(${index})">🗑️ Delete</button>
                             </div>
-                            <div class="chunk-header">
-                                <span>${chunk.fr}</span>
-                                <button class="btn-speak-mini" style="margin:0;" onclick="speakFrench('${safeFr}')">🔊</button>
-                            </div>
+                            <!-- 🌟 テキスト自体をタップして再生 -->
+                            <div class="clickable-fr" onclick="speakFrench('${safeFr}')">👉 ${chunk.fr}</div>
                             <div class="ipa-text">${chunk.ipa} ${chunk.katakana}</div>
                             <div class="meaning-text">${chunk.jp ? chunk.jp + ' / ' : ''}${chunk.en}</div>
                             ${chunk.note ? `<div class="note-text">${chunk.note}</div>` : ''}
@@ -533,22 +542,20 @@
                         pHtml += `
                             <div class="sentence-item">
                                 <div style="flex-grow: 1;">
-                                    <div class="fr-side">${p.fr}</div>
+                                    <!-- 🌟 例文もテキストタップで再生 -->
+                                    <div class="fr-side-clickable" onclick="speakFrench('${safeFr}')">👉 ${p.fr}</div>
                                     <div class="en-side">${p.en}</div>
                                 </div>
-                                <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
-                                    <button class="btn-speak-mini" style="margin:0;" onclick="speakFrench('${safeFr}')">🔊</button>
-                                    <div style="display:flex; gap:2px;">
-                                        <button class="btn-inline-edit" style="padding:2px 4px; font-size:9px;" onclick="editVerbPair(${vIndex}, ${pIndex})">✏️</button>
-                                        <button class="btn-inline-delete" style="padding:2px 4px; font-size:9px;" onclick="deleteVerbPair(${vIndex}, ${pIndex})">🗑️</button>
-                                    </div>
+                                <div class="item-controls" style="position: absolute; top: 10px; right: 10px;">
+                                    <button class="btn-inline-edit" style="padding: 3px 6px; font-size: 11px;" onclick="editVerbPair(${vIndex}, ${pIndex})">✏️</button>
+                                    <button class="btn-inline-delete" style="padding: 3px 6px; font-size: 11px;" onclick="deleteVerbPair(${vIndex}, ${pIndex})">🗑️</button>
                                 </div>
                             </div>
                         `;
                     });
                     container.innerHTML += `
                         <div class="verb-block">
-                            <div class="chunk-header" style="color: #e74c3c;">${v.header}</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #e74c3c; margin-bottom: 5px;">${v.header}</div>
                             ${pHtml}
                         </div>
                     `;
@@ -568,14 +575,14 @@
 
             if (flashcardQueue.length === 0) {
                 globalData.chunks.forEach(c => {
-                    // 英語データがあれば英語を最優先、なければ日本語をバックアップに
                     if(c.fr) {
-                        let backSideText = c.en ? c.en : (c.jp ? c.jp : "No translation available");
+                        // 🌟 裏面は英語データのみをセット（日本語をシャットアウト）
+                        let backSideText = c.en ? c.en : "No English translation available";
                         flashcardQueue.push({ fr: c.fr, en: backSideText });
                     }
                 });
                 globalData.verbs.forEach(v => {
-                    v.pairs.forEach(p => { if(p.fr) flashcardQueue.push({ fr: p.fr, en: p.en || "No translation available" }); });
+                    v.pairs.forEach(p => { if(p.fr) flashcardQueue.push({ fr: p.fr, en: p.en || "No English translation available" }); });
                 });
                 
                 flashcardQueue.sort(() => Math.random() - 0.5);
@@ -589,12 +596,9 @@
                 document.getElementById('card-front-text').textContent = "🎉 Review Completed!";
                 document.getElementById('card-back-text').textContent = "Excellent practice!";
                 document.getElementById('card-progress').textContent = "Completed!";
-                document.getElementById('btn-card-audio').style.display = 'none';
                 return;
             }
 
-            document.getElementById('btn-card-audio').style.display = 'inline-flex';
-            
             const card = flashcardQueue[currentCardIndex];
             document.getElementById('card-front-text').textContent = card.fr;
             document.getElementById('card-back-text').textContent = card.en;
@@ -611,7 +615,6 @@
             
             if (fc.classList.contains('flipped') && currentCardIndex < flashcardQueue.length) {
                 const enText = flashcardQueue[currentCardIndex].en;
-                // アルファベットが含まれている場合のみ英語サマンサで読み上げ
                 if (enText && enText.match(/[A-Za-z]/)) {
                     setTimeout(() => { speakEnglish(enText); }, 200);
                 }
