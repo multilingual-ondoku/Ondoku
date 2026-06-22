@@ -82,21 +82,18 @@
             border-radius: 12px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.05);
             margin-bottom: 15px;
-            position: relative;
         }
         
-        /* 🗣️ フランス語のテキスト自体をボタン化（押しやすく！） */
+        /* 🗣️ プレーンで押しやすいフランス語テキスト */
         .clickable-fr {
             font-size: 20px;
             font-weight: bold;
             color: #2980b9;
             cursor: pointer;
-            display: inline-block;
-            padding: 2px 6px;
+            display: block;
+            padding: 4px 0;
             border-radius: 4px;
             transition: background 0.1s;
-            max-width: 75%;
-            word-wrap: break-word;
         }
         .clickable-fr:active {
             background-color: #e8f4fd;
@@ -106,33 +103,26 @@
         .meaning-text { color: #27ae60; font-weight: bold; font-size: 17px; margin: 8px 0; }
         .note-text { color: #e67e22; font-size: 13px; margin-top: 12px; white-space: pre-line; line-height: 1.4; background: #fff5e6; padding: 10px; border-radius: 6px; }
         
-        /* 🛠️ 右上のコントロールボタンをすっきり美しく */
-        .item-controls {
-            position: absolute;
-            top: 15px;
-            right: 15px;
+        /* 🛠️ ボタンは文字と被らないよう、カードの下部にシンプルに配置 */
+        .item-footer-controls {
             display: flex;
-            gap: 6px;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed #eee;
         }
-        .btn-inline-edit {
-            background: #f1c40f;
-            color: #2c3e50;
+        .btn-emoji-only {
+            background: none;
             border: none;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: bold;
+            font-size: 18px;
             cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.1s;
         }
-        .btn-inline-delete {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: bold;
-            cursor: pointer;
+        .btn-emoji-only:active {
+            background-color: #f1f2f6;
         }
 
         /* 動詞の例文行スタイル */
@@ -142,25 +132,19 @@
             border-radius: 8px;
             margin-top: 10px;
             border-left: 4px solid #3498db;
-            position: relative;
         }
         .fr-side-clickable {
             font-weight: 600;
             color: #2c3e50;
             font-size: 16px;
             cursor: pointer;
-            display: inline-block;
-            padding: 2px 4px;
-            border-radius: 4px;
-            max-width: 75%;
+            display: block;
+            padding: 2px 0;
         }
         .fr-side-clickable:active {
             background-color: #eee;
         }
         .en-side { font-size: 14px; color: #7f8c8d; margin-top: 4px; font-weight: 500; }
-        
-        /* 隠し再生ボタン（ロジック用） */
-        .btn-speak-mini { display: none; }
 
         /* Flashcard Styling */
         .card-container {
@@ -387,7 +371,6 @@
             }
         }
 
-        // 🛠️ 1件ずつの削除ロジック（確実に動くように修復）
         function deleteChunk(index) {
             if(confirm("Delete this item?")) {
                 globalData.chunks.splice(index, 1);
@@ -409,12 +392,13 @@
             }
         }
 
-        // 🛠️ 1件ずつの編集ロジック（入力ダイアログが確実にポップアップするように修正）
+        // 🌟 修正：フランス語と英語を両方ダイレクトに直せるように改修
         function editChunk(index) {
             const chunk = globalData.chunks[index];
-            const newFr = prompt("Edit French text:", chunk.fr);
-            if (newFr === null) return;
-            const newEn = prompt("Edit English translation:", chunk.en);
+            const newFr = prompt("✏️ Edit French text:", chunk.fr);
+            if (newFr === null) return; // キャンセル時
+            
+            const newEn = prompt("✏️ Edit English translation (Leave empty if none):", chunk.en || "");
             if (newEn === null) return;
 
             globalData.chunks[index].fr = newFr.trim();
@@ -426,9 +410,10 @@
 
         function editVerbPair(verbIndex, pairIndex) {
             const pair = globalData.verbs[verbIndex].pairs[pairIndex];
-            const newFr = prompt("Edit French text:", pair.fr);
+            const newFr = prompt("✏️ Edit French text:", pair.fr);
             if (newFr === null) return;
-            const newEn = prompt("Edit English translation:", pair.en);
+            
+            const newEn = prompt("✏️ Edit English translation (Leave empty if none):", pair.en || "");
             if (newEn === null) return;
 
             globalData.verbs[verbIndex].pairs[pairIndex].fr = newFr.trim();
@@ -519,15 +504,17 @@
                     let safeFr = chunk.fr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     container.innerHTML += `
                         <div class="chunk-block">
-                            <div class="item-controls">
-                                <button class="btn-inline-edit" onclick="editChunk(${index})">✏️ Edit</button>
-                                <button class="btn-inline-delete" onclick="deleteChunk(${index})">🗑️ Delete</button>
-                            </div>
-                            <!-- 🌟 テキスト自体をタップして再生 -->
-                            <div class="clickable-fr" onclick="speakFrench('${safeFr}')">👉 ${chunk.fr}</div>
+                            <!-- 🌟 テキストを最優先。タップでアメリちゃん再生 -->
+                            <div class="clickable-fr" onclick="speakFrench('${safeFr}')">${chunk.fr}</div>
                             <div class="ipa-text">${chunk.ipa} ${chunk.katakana}</div>
                             <div class="meaning-text">${chunk.jp ? chunk.jp + ' / ' : ''}${chunk.en}</div>
                             ${chunk.note ? `<div class="note-text">${chunk.note}</div>` : ''}
+                            
+                            <!-- 🌟 ボタンは下部へ移動、絵文字のみでスタイリッシュに -->
+                            <div class="item-footer-controls">
+                                <button class="btn-emoji-only" onclick="editChunk(${index})" title="Edit">✏️</button>
+                                <button class="btn-emoji-only" onclick="deleteChunk(${index})" title="Delete">🗑️</button>
+                            </div>
                         </div>
                     `;
                 });
@@ -541,14 +528,13 @@
                         let safeFr = p.fr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                         pHtml += `
                             <div class="sentence-item">
-                                <div style="flex-grow: 1;">
-                                    <!-- 🌟 例文もテキストタップで再生 -->
-                                    <div class="fr-side-clickable" onclick="speakFrench('${safeFr}')">👉 ${p.fr}</div>
-                                    <div class="en-side">${p.en}</div>
-                                </div>
-                                <div class="item-controls" style="position: absolute; top: 10px; right: 10px;">
-                                    <button class="btn-inline-edit" style="padding: 3px 6px; font-size: 11px;" onclick="editVerbPair(${vIndex}, ${pIndex})">✏️</button>
-                                    <button class="btn-inline-delete" style="padding: 3px 6px; font-size: 11px;" onclick="deleteVerbPair(${vIndex}, ${pIndex})">🗑️</button>
+                                <div class="fr-side-clickable" onclick="speakFrench('${safeFr}')">${p.fr}</div>
+                                <div class="en-side">${p.en}</div>
+                                
+                                <!-- 🌟 例文の下部にもコンパクトに配置 -->
+                                <div class="item-footer-controls" style="margin-top: 8px; border-top: none; padding-top: 0;">
+                                    <button class="btn-emoji-only" style="font-size: 15px;" onclick="editVerbPair(${vIndex}, ${pIndex})">✏️</button>
+                                    <button class="btn-emoji-only" style="font-size: 15px;" onclick="deleteVerbPair(${vIndex}, ${pIndex})">🗑️</button>
                                 </div>
                             </div>
                         `;
@@ -576,7 +562,6 @@
             if (flashcardQueue.length === 0) {
                 globalData.chunks.forEach(c => {
                     if(c.fr) {
-                        // 🌟 裏面は英語データのみをセット（日本語をシャットアウト）
                         let backSideText = c.en ? c.en : "No English translation available";
                         flashcardQueue.push({ fr: c.fr, en: backSideText });
                     }
