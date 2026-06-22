@@ -312,7 +312,7 @@
         }
 
         function loadSavedData() {
-            const saved = localStorage.getItem('french_chunk_structured_data_v2');
+            const saved = localStorage.getItem('french_chunk_structured_data_v3');
             if (saved) {
                 try {
                     globalData = JSON.parse(saved);
@@ -325,7 +325,7 @@
         }
 
         function saveData() {
-            localStorage.setItem('french_chunk_structured_data_v2', JSON.stringify(globalData));
+            localStorage.setItem('french_chunk_structured_data_v3', JSON.stringify(globalData));
             updateCounters();
         }
 
@@ -335,7 +335,7 @@
 
         function clearAllData() {
             if(confirm("Are you sure you want to delete ALL data?")) {
-                localStorage.removeItem('french_chunk_structured_data_v2');
+                localStorage.removeItem('french_chunk_structured_data_v3');
                 globalData = { chunks: [] };
                 flashcardQueue = [];
                 updateCounters();
@@ -381,79 +381,87 @@
             flashcardQueue = [];
         }
 
-        /* 🌟 複数セットを完全に切り分ける大改造パースエンジン */
+        /* 🌟 【決定版】説明文の位置を基準にした、絶対にブレないパースエンジン */
         function processStructuredData() {
             const rawText = document.getElementById('raw-data').value;
             if (!rawText.trim()) return;
 
-            // まず、あからさまに別々の単語ブロック（2つ以上の改行、または説明の後に別のフランス語が始まる境界）を大まかに分解
-            // 特徴として「フランス語行の次の行が必ず[発音記号]である」性質を利用してブロック化
-            const lines = rawText.split('\n').map(l => l.trim());
+            // まず、行ごとにバラして無駄な空行を消す
+            const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
-            let rawBlocks = [];
-            let currentBlock = [];
+            // 複数のチャンクセミナーの塊を、最初の「フランス語（説明マークのないプレーンな行）」を基準に完全に仕分けする
+            let chunkBlocks = [];
+            let currentBlock = null;
 
             for (let i = 0; i < lines.length; i++) {
-                // 次の行が存在し、自分が普通の文で、次の行が [ で始まる場合、そこが新しい大きな塊のスタート地点
-                if (i < lines.length - 1 && !lines[i].startsWith('[') && !lines[i].startsWith('※') && !lines[i].startsWith('•') && lines[i+1].startsWith('[')) {
-                    // もしすでに直前のブロックに「例文」などのデータがたまっている状態で、かつメイン項目がすでにあるなら、別の塊とみなして一度区切る
-                    if (currentBlock.length > 0 && currentBlock.some(l => l.startsWith('※') || l.startsWith('•'))) {
-                        rawBlocks.push(currentBlock);
-                        currentBlock = [];
+                let line = lines[i];
+
+                // [発音記号]でも、説明文(※•)でもなく、次の行が[発音記号]で始まっているなら、そこが1つの「メインチャンク」のド頭
+                if (!line.startsWith('[') && !line.startsWith('※') && !line.startsWith('•') && lines[i+1] && lines[i+1].startsWith('[')) {
+                    
+                    // ただし、すでに「説明文」を通過した後の新しいフランス語であれば、それは別の大きなチャンクセットだと判定して新ブロックを作る
+                    if (currentBlock && currentBlock.some(l => l.startsWith('※') || l.startsWith('•'))) {
+                        chunkBlocks.push(currentBlock);
+                        currentBlock = null;
                     }
                 }
-                if (lines[i].length > 0) {
-                    currentBlock.push(lines[i]);
+
+                if (!currentBlock) {
+                    currentBlock = [];
                 }
+                currentBlock.push(line);
             }
-            if (currentBlock.length > 0) {
-                rawBlocks.push(currentBlock);
+            if (currentBlock) {
+                chunkBlocks.push(currentBlock);
             }
 
             let addedCount = 0;
 
-            // 分解した各ブロックを個別に解析してデータベースに格納
-            rawBlocks.forEach(blockLines => {
-                if (blockLines.length < 3) return;
+            // 完全に仕分けされた1セットずつを綺麗にマッピング
+            chunkBlocks.forEach(block => {
+                if (block.length < 3) return;
 
-                let mainFr = blockLines[0];
-                let mainIpa = blockLines[1].startsWith('[') ? blockLines[1] : '';
-                
+                // 1. 先頭から「※」や「•」が出る直前までを【メイン情報】とする
+                let mainFr = block[0];
+                let mainIpa = block[1].startsWith('[') ? block[1] : '';
                 let mainEn = '';
-                let enIndex = mainIpa ? 2 : 1;
-                if (blockLines[enIndex] && !blockLines[enIndex].startsWith('※') && !blockLines[enIndex].startsWith('•')) {
-                    mainEn = blockLines[enIndex];
+                
+                let firstNoteIdx = block.findIndex(l => l.startsWith('※') || l.startsWith('•'));
+                if (firstNoteIdx === -1) firstNoteIdx = block.length; // 説明文が無いイレギュラーケース対応
+
+                // メインの英訳を探す（発音記号の次から説明文の手前までの間にある、プレーンな英文字の行）
+                for (let k = 2; k < firstNoteIdx; k++) {
+                    if (block[k] && !block[k].startsWith('[') && block[k].match(/[a-zA-Z]/)) {
+                        mainEn = block[k];
+                        break;
+                    }
                 }
 
-                let notes = [];
-                blockLines.forEach(l => {
-                    if (l.startsWith('※') || l.startsWith('•')) {
-                        notes.push(l);
-                    }
-                });
+                // 2. 「※」や「•」がついている行だけを集めて【説明ノート】とする
+                let notes = block.filter(l => l.startsWith('※') || l.startsWith('•'));
                 let explanation = notes.join('\n');
 
+                // 3. 最初に出てきた「説明文（※、•）」のインデックスよりも【後ろにある行】をすべて例文エリアとする！
                 let examples = [];
-                
-                // 説明文より後ろの位置から、例文トリオ（仏・音・英）を探す
-                for (let i = 2; i < blockLines.length; i++) {
-                    let line = blockLines[i];
-                    
-                    if (line !== mainFr && !line.startsWith('[') && !line.startsWith('※') && !line.startsWith('•') && line !== mainEn) {
-                        if (blockLines[i+1] && blockLines[i+1].startsWith('[') && blockLines[i+2]) {
+                if (firstNoteIdx !== block.length) {
+                    let examplePartLines = block.slice(firstNoteIdx + notes.length);
+
+                    // 例文パートから 3行1セット（フランス語文 → 発音記号 → 英訳）をきれいに抜き出す
+                    for (let m = 0; m < examplePartLines.length; m++) {
+                        let currentLine = examplePartLines[m];
+                        
+                        // プレーンなフランス語で、かつ次が発音記号 [ で始まるなら例文のスタート
+                        if (currentLine && !currentLine.startsWith('[') && examplePartLines[m+1] && examplePartLines[m+1].startsWith('[')) {
+                            let exFr = currentLine;
+                            let exIpa = examplePartLines[m+1];
+                            let exEn = examplePartLines[m+2] || '';
+                            
                             examples.push({
-                                fr: line,
-                                ipa: blockLines[i+1],
-                                en: blockLines[i+2]
+                                fr: exFr,
+                                ipa: exIpa,
+                                en: exEn
                             });
-                            i += 2; 
-                        } else if (blockLines[i+1] && !blockLines[i+1].startsWith('[') && !blockLines[i+1].startsWith('※') && !blockLines[i+1].startsWith('•') && blockLines[i+1].match(/[a-zA-Z]/)) {
-                            examples.push({
-                                fr: line,
-                                ipa: '',
-                                en: blockLines[i+1]
-                            });
-                            i += 1;
+                            m += 2; // 3行分ジャンプ
                         }
                     }
                 }
