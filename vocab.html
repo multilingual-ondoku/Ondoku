@@ -246,9 +246,13 @@
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedData();
             renderListView();
-            // Trigger voice loading sequence for mobile browsers
+            
+            // Critical for iOS Safari: trigger initial voice population
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.getVoices();
+                if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                    window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+                }
             }
         });
 
@@ -264,46 +268,43 @@
             }
         }
 
-        // --- ENHANCED SMOOTH SPEECH SYNTHESIS ---
+        // --- HARDCORE VOICE FILTERING LOGIC ---
         function speakFrench(text) {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // Stop any overlapping audio immediately
+                window.speechSynthesis.cancel(); 
                 
-                // 1. Clean data to avoid robotic stutters from numbers or dashes
-                let cleanText = text.replace(/^\d+[\.\s、]+/g, ''); 
-                cleanText = cleanText.trim();
-
+                let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim(); 
                 const utterance = new SpeechSynthesisUtterance(cleanText);
                 utterance.lang = 'fr-FR';
-                
-                // 2. Fine-tune speech pacing for high quality natural rhythm
-                utterance.rate = 0.95;  // Slightly natural pacing to avoid compressed robotic syllables
-                utterance.pitch = 1.0; // Standard natural tone pitch
-                
-                // 3. Find the highest quality Native French Voices available on the OS
+                utterance.rate = 0.95; 
+                utterance.pitch = 1.0; 
+
                 const voices = window.speechSynthesis.getVoices();
                 
-                // Look for Premium/Enhanced voices first (Audrey, Siri, Google, Thomas, Aurélie)
-                const targetVoice = voices.find(v => {
-                    const name = v.name.toLowerCase();
-                    const isFr = v.lang.toLowerCase().startsWith('fr');
-                    return isFr && (
-                        name.includes('audrey') || 
-                        name.includes('siri') || 
-                        name.includes('google') ||
-                        name.includes('premium') || 
-                        name.includes('enhanced') ||
-                        name.includes('thomas') ||
-                        name.includes('aurélie')
-                    );
-                });
+                // Tier 1: Look explicitly for Audrey (case-insensitive)
+                let selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && v.name.toLowerCase().includes('audrey'));
+                
+                // Tier 2: If Audrey isn't exposing her name properly to Safari, find ANY Premium/Enhanced French Female voice
+                if (!selectedVoice) {
+                    selectedVoice = voices.find(v => {
+                        const name = v.name.toLowerCase();
+                        const isFr = v.lang.toLowerCase().startsWith('fr');
+                        return isFr && (name.includes('siri') || name.includes('aurélie') || name.includes('google') || name.includes('premium') || name.includes('enhanced'));
+                    });
+                }
 
-                if (targetVoice) {
-                    utterance.voice = targetVoice;
-                } else {
-                    // Fallback to any baseline French voice
-                    const genericFr = voices.find(v => v.lang.toLowerCase().startsWith('fr'));
-                    if (genericFr) utterance.voice = genericFr;
+                // Tier 3: Hard filter to exclude male default voices like 'Thomas' or 'Nicolas' if possible
+                if (!selectedVoice) {
+                    selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && !v.name.toLowerCase().includes('thomas') && !v.name.toLowerCase().includes('nicolas'));
+                }
+
+                // Tier 4: True generic fallback
+                if (!selectedVoice) {
+                    selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr'));
+                }
+
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
                 }
 
                 window.speechSynthesis.speak(utterance);
@@ -502,7 +503,6 @@
             
             document.getElementById('flashcard').classList.remove('flipped');
             
-            // Short delay so webviews can cleanly queue the smooth voice
             setTimeout(() => { speakFrench(card.fr); }, 300);
         }
 
