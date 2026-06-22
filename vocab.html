@@ -77,15 +77,15 @@
 
         .chunk-block, .verb-block {
             background: white;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
             margin-bottom: 15px;
         }
-        .chunk-header { font-size: 19px; font-weight: bold; color: #2980b9; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-        .ipa-text { color: #7f8c8d; font-size: 14px; font-style: italic; margin: 3px 0; }
-        .meaning-text { color: #27ae60; font-weight: bold; font-size: 16px; margin: 5px 0; }
-        .note-text { color: #e67e22; font-size: 13px; margin-bottom: 12px; white-space: pre-line; line-height: 1.4; background: #fff5e6; padding: 8px; border-radius: 6px; }
+        .chunk-header { font-size: 20px; font-weight: bold; color: #2980b9; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .ipa-text { color: #7f8c8d; font-size: 14px; font-style: italic; margin: 4px 0 8px 0; }
+        .meaning-text { color: #27ae60; font-weight: bold; font-size: 17px; margin: 8px 0; }
+        .note-text { color: #e67e22; font-size: 13px; margin-top: 12px; white-space: pre-line; line-height: 1.4; background: #fff5e6; padding: 10px; border-radius: 6px; }
         
         .sentence-item {
             background: #f8f9fa;
@@ -96,9 +96,8 @@
             justify-content: space-between;
             align-items: center;
             gap: 10px;
-            border-left: 3px solid #3498db;
+            border-left: 3px solid #e74c3c;
         }
-        .sentence-item.verb-item { border-left: 3px solid #e74c3c; }
         .fr-side { font-weight: 600; color: #2c3e50; font-size: 15px; }
         .en-side { font-size: 13px; color: #7f8c8d; margin-top: 2px; }
         
@@ -107,10 +106,10 @@
             color: white;
             border: none;
             border-radius: 50%;
-            width: 32px;
-            height: 32px;
+            width: 36px;
+            height: 36px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -187,7 +186,7 @@
 <body>
 
     <h1>📇 French Chunk & Verb Learner</h1>
-    <div class="total-counter" id="total-database-counter">Loaded: 0 Chunks, 0 Verbs from storage</div>
+    <div class="total-counter" id="total-database-counter">Loaded: 0 Items from storage</div>
     
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('input-panel')">📥 Add Data</button>
@@ -195,6 +194,7 @@
         <button class="tab-btn" onclick="switchTab('card-panel')">📇 Flashcards</button>
     </div>
 
+    <!-- 1. Input Panel -->
     <div id="input-panel" class="panel active">
         <div class="chunk-block">
             <h3>Paste New ChatGPT Output</h3>
@@ -206,12 +206,14 @@
         </div>
     </div>
 
+    <!-- 2. List Panel -->
     <div id="list-panel" class="panel">
         <div id="list-container">
             <p style="text-align: center; color: #7f8c8d; padding: 20px;">No data loaded. Go to "Add Data" tab first!</p>
         </div>
     </div>
 
+    <!-- 3. Card Panel -->
     <div id="card-panel" class="panel">
         <div id="card-view-wrapper" style="display: none;">
             <div class="card-container" onclick="toggleCardFlip()">
@@ -241,10 +243,13 @@
         let flashcardQueue = [];
         let currentCardIndex = 0;
 
-        // Load data on start from Phone storage
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedData();
             renderListView();
+            // Trigger voice loading sequence for mobile browsers
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.getVoices();
+            }
         });
 
         function switchTab(panelId) {
@@ -259,20 +264,48 @@
             }
         }
 
+        // --- ENHANCED SMOOTH SPEECH SYNTHESIS ---
         function speakFrench(text) {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const cleanText = text.replace(/^\d+\.\s*/, '');
+                window.speechSynthesis.cancel(); // Stop any overlapping audio immediately
+                
+                // 1. Clean data to avoid robotic stutters from numbers or dashes
+                let cleanText = text.replace(/^\d+[\.\s、]+/g, ''); 
+                cleanText = cleanText.trim();
+
                 const utterance = new SpeechSynthesisUtterance(cleanText);
                 utterance.lang = 'fr-FR';
                 
+                // 2. Fine-tune speech pacing for high quality natural rhythm
+                utterance.rate = 0.95;  // Slightly natural pacing to avoid compressed robotic syllables
+                utterance.pitch = 1.0; // Standard natural tone pitch
+                
+                // 3. Find the highest quality Native French Voices available on the OS
                 const voices = window.speechSynthesis.getVoices();
-                const audrey = voices.find(v => v.lang.toLowerCase().startsWith('fr') && v.name.toLowerCase().includes('audrey'));
-                if (audrey) utterance.voice = audrey;
-                else {
-                    const anyFr = voices.find(v => v.lang.toLowerCase().startsWith('fr'));
-                    if (anyFr) utterance.voice = anyFr;
+                
+                // Look for Premium/Enhanced voices first (Audrey, Siri, Google, Thomas, Aurélie)
+                const targetVoice = voices.find(v => {
+                    const name = v.name.toLowerCase();
+                    const isFr = v.lang.toLowerCase().startsWith('fr');
+                    return isFr && (
+                        name.includes('audrey') || 
+                        name.includes('siri') || 
+                        name.includes('google') ||
+                        name.includes('premium') || 
+                        name.includes('enhanced') ||
+                        name.includes('thomas') ||
+                        name.includes('aurélie')
+                    );
+                });
+
+                if (targetVoice) {
+                    utterance.voice = targetVoice;
+                } else {
+                    // Fallback to any baseline French voice
+                    const genericFr = voices.find(v => v.lang.toLowerCase().startsWith('fr'));
+                    if (genericFr) utterance.voice = genericFr;
                 }
+
                 window.speechSynthesis.speak(utterance);
             }
         }
@@ -297,8 +330,8 @@
         }
 
         function updateCounters() {
-            const countText = `Loaded: ${globalData.chunks.length} Chunks, ${globalData.verbs.length} Verbs in your system`;
-            document.getElementById('total-database-counter').textContent = countText;
+            const totalItems = globalData.chunks.length + globalData.verbs.reduce((acc, v) => acc + v.pairs.length, 0);
+            document.getElementById('total-database-counter').textContent = `Loaded: ${totalItems} items in your system`;
         }
 
         function clearAllData() {
@@ -313,7 +346,6 @@
             }
         }
 
-        // Cumulative Text Parser
         function processData() {
             const rawText = document.getElementById('raw-data').value;
             if (!rawText.trim()) {
@@ -321,7 +353,7 @@
                 return;
             }
 
-            flashcardQueue = []; // Reset current session cards to force remake
+            flashcardQueue = []; 
 
             const blocks = rawText.split(/\n(?=(?:\d+\.\s+[A-ZÀ-ÿa-z]|J’|Je|Tu|Il|Elle|Nous|Vous|Ils))/g);
 
@@ -331,7 +363,6 @@
 
                 const firstLine = lines[0];
 
-                // Vital Verbs Block
                 if (firstLine.match(/^\d+\.\s+\w+/) && (firstLine.includes('(') || firstLine.includes('to '))) {
                     let header = firstLine;
                     let pairs = [];
@@ -345,17 +376,14 @@
                         }
                     }
                     if (pairs.length > 0) {
-                        // Avoid direct duplicate blocks
                         if (!globalData.verbs.some(v => v.header === header)) {
                             globalData.verbs.push({ header: header, pairs: pairs });
                         }
                     }
                 } 
-                // Chunk Block
                 else if (lines.some(l => l.startsWith('[')) || lines.some(l => l.match(/^\d+\./))) {
                     let frChunk = firstLine;
                     
-                    // Duplicate check: skip if chunk already loaded
                     if (globalData.chunks.some(c => c.fr === frChunk)) return;
 
                     let ipa = lines.find(l => l.startsWith('[')) || '';
@@ -364,44 +392,20 @@
                     let noteLines = lines.filter(l => l.startsWith('※') || l.startsWith('•'));
                     let note = noteLines.join('\n');
 
-                    let jpMeaning = lines.find(l => l.startsWith('～') || (l.match(/^[\u4e00-\u9faf\u3040-\u309f]+/) && !l.startsWith('※'))) || '';
-                    let enMeaning = lines.find(l => l.toLowerCase().includes('want to') || l.toLowerCase().includes('thought') || (l.match(/^[A-Za-z\s]+～?$/) && !l.startsWith('['))) || '';
-
-                    let sentences = [];
-                    for (let i = 0; i < lines.length; i++) {
-                        if (lines[i].match(/^\d+\./)) {
-                            let frSentence = lines[i];
-                            let ipaSentence = '';
-                            let enSentence = '';
-
-                            if (i + 1 < lines.length && lines[i+1].startsWith('[')) {
-                                ipaSentence = lines[i+1];
-                                if (i + 2 < lines.length && lines[i+2].match(/^[A-Za-z]/) && !lines[i+2].startsWith('[')) {
-                                    enSentence = lines[i+2];
-                                    i += 2;
-                                } else {
-                                    i += 1;
-                                }
-                            } else if (i + 1 < lines.length && lines[i+1].match(/^[A-Za-z]/)) {
-                                enSentence = lines[i+1];
-                                i += 1;
-                            }
-                            sentences.push({ fr: frSentence, ipa: ipaSentence, en: enSentence });
-                        }
-                    }
+                    let jpMeaning = lines.find(l => l.startsWith('～') || (l.match(/^[\u4e00-\u9faf\u3040-\u309f/、]+/) && !l.startsWith('※'))) || '';
+                    let enMeaning = lines.find(l => l.toLowerCase().includes('want') || l.toLowerCase().includes('think') || l.toLowerCase().includes('go') || l.toLowerCase().includes('drink') || l.toLowerCase().includes('do') || (l.match(/^[A-Za-z\s'’,/!]+$/) && !l.startsWith('['))) || '';
 
                     globalData.chunks.push({
-                        fr: frChunk, ipa: ipa, katakana: katakana, jp: jpMeaning, en: enMeaning, note: note, sentences: sentences
+                        fr: frChunk, ipa: ipa, katakana: katakana, jp: jpMeaning, en: enMeaning, note: note
                     });
                 }
             });
 
-            // Save back to local storage
             saveData();
             renderListView();
             
-            document.getElementById('raw-data').value = ''; // Clean box
-            alert("Added successfully! Your library is growing.");
+            document.getElementById('raw-data').value = ''; 
+            alert("Added successfully!");
             switchTab('list-panel');
         }
 
@@ -415,22 +419,8 @@
             }
 
             if (globalData.chunks.length > 0) {
-                container.innerHTML += '<h2>🧩 Accumulated Chunks</h2>';
+                container.innerHTML += '<h2>🧩 Accumulated Items</h2>';
                 globalData.chunks.forEach(chunk => {
-                    let sHtml = '';
-                    chunk.sentences.forEach(s => {
-                        sHtml += `
-                            <div class="sentence-item">
-                                <div style="flex-grow: 1;">
-                                    <div class="fr-side">${s.fr}</div>
-                                    <div style="font-size:12px; color:#95a5a6; font-style:italic;">${s.ipa}</div>
-                                    <div class="en-side">${s.en}</div>
-                                </div>
-                                <button class="btn-speak-mini" onclick="speakFrench('${s.fr.replace(/'/g, "\\'")}')">🔊</button>
-                            </div>
-                        `;
-                    });
-
                     container.innerHTML += `
                         <div class="chunk-block">
                             <div class="chunk-header">
@@ -438,26 +428,25 @@
                                 <button class="btn-speak-mini" onclick="speakFrench('${chunk.fr.replace(/'/g, "\\'")}')">🔊</button>
                             </div>
                             <div class="ipa-text">${chunk.ipa} ${chunk.katakana}</div>
-                            <div class="meaning-text">${chunk.jp} / ${chunk.en}</div>
+                            <div class="meaning-text">${chunk.jp ? chunk.jp + ' / ' : ''}${chunk.en}</div>
                             ${chunk.note ? `<div class="note-text">${chunk.note}</div>` : ''}
-                            ${sHtml}
                         </div>
                     `;
                 });
             }
 
             if (globalData.verbs.length > 0) {
-                container.innerHTML += '<h2>⚡ Accumulated Verbs</h2>';
+                container.innerHTML += '<h2>⚡ Verb Practices</h2>';
                 globalData.verbs.forEach(v => {
                     let pHtml = '';
                     v.pairs.forEach(p => {
                         pHtml += `
-                            <div class="sentence-item verb-item">
+                            <div class="sentence-item">
                                 <div style="flex-grow: 1;">
                                     <div class="fr-side">${p.fr}</div>
                                     <div class="en-side">${p.en}</div>
                                 </div>
-                                <button class="btn-speak-mini" style="background:#e74c3c;" onclick="speakFrench('${p.fr.replace(/'/g, "\\'")}')">🔊</button>
+                                <button class="btn-speak-mini" onclick="speakFrench('${p.fr.replace(/'/g, "\\'")}')">🔊</button>
                             </div>
                         `;
                     });
@@ -482,9 +471,8 @@
             document.getElementById('card-empty-message').style.display = 'none';
 
             if (flashcardQueue.length === 0) {
-                // Collect everything ever saved into the review deck
                 globalData.chunks.forEach(c => {
-                    c.sentences.forEach(s => { if(s.fr && s.en) flashcardQueue.push({ fr: s.fr, en: s.en }); });
+                    if(c.fr && (c.en || c.jp)) flashcardQueue.push({ fr: c.fr, en: c.en || c.jp });
                 });
                 globalData.verbs.forEach(v => {
                     v.pairs.forEach(p => { if(p.fr && p.en) flashcardQueue.push({ fr: p.fr, en: p.en }); });
@@ -514,7 +502,8 @@
             
             document.getElementById('flashcard').classList.remove('flipped');
             
-            setTimeout(() => { speakFrench(card.fr); }, 200);
+            // Short delay so webviews can cleanly queue the smooth voice
+            setTimeout(() => { speakFrench(card.fr); }, 300);
         }
 
         function toggleCardFlip() {
