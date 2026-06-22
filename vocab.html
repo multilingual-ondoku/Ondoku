@@ -41,7 +41,7 @@
         
         textarea {
             width: 100%;
-            height: 150px;
+            height: 180px;
             padding: 10px;
             box-sizing: border-box;
             border: 2px dashed #bdc3c7;
@@ -76,7 +76,8 @@
         }
         .btn-danger:hover { opacity: 1; }
 
-        .chunk-block, .verb-block {
+        /* チャンク全体のコンテナ */
+        .chunk-block {
             background: white;
             padding: 20px;
             border-radius: 12px;
@@ -84,7 +85,6 @@
             margin-bottom: 15px;
         }
         
-        /* 🗣️ プレーンで押しやすいフランス語テキスト */
         .clickable-fr {
             font-size: 20px;
             font-weight: bold;
@@ -92,59 +92,70 @@
             cursor: pointer;
             display: block;
             padding: 4px 0;
-            border-radius: 4px;
-            transition: background 0.1s;
         }
-        .clickable-fr:active {
-            background-color: #e8f4fd;
+        .clickable-fr:active { background-color: #e8f4fd; }
+
+        .ipa-text { color: #7f8c8d; font-size: 14px; font-style: italic; margin: 4px 0; }
+        .meaning-text { color: #27ae60; font-weight: bold; font-size: 17px; margin: 6px 0; }
+        .note-text { color: #e67e22; font-size: 13px; margin: 10px 0; white-space: pre-line; line-height: 1.4; background: #fff5e6; padding: 10px; border-radius: 6px; }
+        
+        /* 📄 折りたたみ（アコーディオン）用のスタイル */
+        .accordion-toggle {
+            background: #f1f2f6;
+            color: #57606f;
+            border: none;
+            width: 100%;
+            padding: 8px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .accordion-content {
+            display: none;
+            margin-top: 10px;
+            padding-left: 5px;
+        }
+        .accordion-content.open {
+            display: block;
         }
 
-        .ipa-text { color: #7f8c8d; font-size: 14px; font-style: italic; margin: 6px 0 8px 0; }
-        .meaning-text { color: #27ae60; font-weight: bold; font-size: 17px; margin: 8px 0; }
-        .note-text { color: #e67e22; font-size: 13px; margin-top: 12px; white-space: pre-line; line-height: 1.4; background: #fff5e6; padding: 10px; border-radius: 6px; }
-        
-        /* 🛠️ ボタンは文字と被らないよう、カードの下部にシンプルに配置 */
+        /* 例文カードのデザイン */
+        .sentence-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 8px;
+            border-left: 4px solid #3498db;
+        }
+        .fr-side-clickable {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 15px;
+            cursor: pointer;
+            display: block;
+        }
+        .fr-side-clickable:active { background-color: #eee; }
+        .en-side { font-size: 13px; color: #7f8c8d; margin-top: 4px; }
+
         .item-footer-controls {
             display: flex;
             justify-content: flex-end;
             gap: 12px;
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px dashed #eee;
+            margin-top: 10px;
+            padding-top: 5px;
         }
         .btn-emoji-only {
             background: none;
             border: none;
             font-size: 18px;
             cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: background 0.1s;
+            padding: 4px;
         }
-        .btn-emoji-only:active {
-            background-color: #f1f2f6;
-        }
-
-        /* 動詞の例文行スタイル */
-        .sentence-item {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 10px;
-            border-left: 4px solid #3498db;
-        }
-        .fr-side-clickable {
-            font-weight: 600;
-            color: #2c3e50;
-            font-size: 16px;
-            cursor: pointer;
-            display: block;
-            padding: 2px 0;
-        }
-        .fr-side-clickable:active {
-            background-color: #eee;
-        }
-        .en-side { font-size: 14px; color: #7f8c8d; margin-top: 4px; font-weight: 500; }
 
         /* Flashcard Styling */
         .card-container {
@@ -161,9 +172,7 @@
             transition: transform 0.4s;
             cursor: pointer;
         }
-        .flashcard.flipped {
-            transform: rotateY(180deg);
-        }
+        .flashcard.flipped { transform: rotateY(180deg); }
         .card-face {
             position: absolute;
             width: 100%;
@@ -179,32 +188,13 @@
             box-sizing: border-box;
             text-align: center;
         }
-        .card-front {
-            background: white;
-            border: 2px solid #3498db;
-        }
-        .card-back {
-            background: #2c3e50;
-            color: white;
-            transform: rotateY(180deg);
-        }
-        .card-fr { font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
-        .card-en { font-size: 20px; font-weight: 500; color: #ecf0f1; }
+        .card-front { background: white; border: 2px solid #3498db; }
+        .card-back { background: #2c3e50; color: white; transform: rotateY(180deg); }
+        .card-fr { font-size: 22px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; line-height: 1.3; }
+        .card-en { font-size: 19px; font-weight: 500; color: #ecf0f1; line-height: 1.3; }
         
-        .card-controls {
-            display: flex;
-            gap: 15px;
-            margin-top: 15px;
-        }
-        .btn-card {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 15px;
-        }
+        .card-controls { display: flex; gap: 15px; margin-top: 15px; }
+        .btn-card { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; }
         .btn-again { background-color: #e74c3c; color: white; }
         .btn-good { background-color: #2ecc71; color: white; }
         
@@ -214,35 +204,32 @@
 </head>
 <body>
 
-    <h1>📇 French Chunk & Verb Learner</h1>
+    <h1>📇 French Chunk Trainer</h1>
     
-    <div class="total-counter" id="total-database-counter">Loaded: 0 Items from storage</div>
+    <div class="total-counter" id="total-database-counter">Loaded: 0 Chunks inside storage</div>
     
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('input-panel')">📥 Add Data</button>
         <button class="tab-btn" onclick="switchTab('list-panel')">📋 Daily List</button>
-        <button class="tab-btn" onclick="switchTab('card-panel')">📇 Flashcards</button>
+        <button class="tab-btn" onclick="switchTab('card-panel')">📇 Flashcards (Examples)</button>
     </div>
 
-    <!-- 1. Input Panel -->
     <div id="input-panel" class="panel active">
         <div class="chunk-block">
-            <h3>Paste New ChatGPT Output</h3>
-            <p style="font-size: 13px; color: #7f8c8d; margin-top: 0;">This will be cumulative. New items will be added to your existing list!</p>
+            <h3>Paste ChatGPT Full Set Output</h3>
+            <p style="font-size: 13px; color: #7f8c8d; margin-top: 0;">Pasted text will be structured automatically into Head and Folded examples.</p>
             <textarea id="raw-data" placeholder="Paste the text from ChatGPT here..."></textarea>
-            <button class="btn-action" onclick="processData()">⚡ Add to My Study Set</button>
+            <button class="btn-action" onclick="processStructuredData()">⚡ Add to My Study Set</button>
             <button class="btn-danger" onclick="clearAllData()">🗑️ Clear All Saved Data</button>
         </div>
     </div>
 
-    <!-- 2. List Panel -->
     <div id="list-panel" class="panel">
         <div id="list-container">
             <p style="text-align: center; color: #7f8c8d; padding: 20px;">No data loaded. Go to "Add Data" tab first!</p>
         </div>
     </div>
 
-    <!-- 3. Card Panel -->
     <div id="card-panel" class="panel">
         <div id="card-view-wrapper" style="display: none;">
             <div class="card-container" onclick="toggleCardFlip()">
@@ -263,12 +250,12 @@
             </div>
         </div>
         <div id="card-empty-message" style="text-align: center; color: #7f8c8d; padding: 20px;">
-            No data loaded. Go to "Add Data" tab first!
+            No examples found for testing. Add data first!
         </div>
     </div>
 
     <script>
-        let globalData = { chunks: [], verbs: [] };
+        let globalData = { chunks: [] }; // 構造化した大本のデータベース
         let flashcardQueue = [];
         let currentCardIndex = 0;
 
@@ -295,8 +282,7 @@
         function speakFrench(text) {
             if (!('speechSynthesis' in window)) return;
             window.speechSynthesis.cancel(); 
-
-            let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim();
+            let cleanText = text.trim();
             if (!cleanText) return;
 
             const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -308,14 +294,7 @@
                 const n = v.name.toLowerCase();
                 return n.includes('amélie') || n.includes('amelie');
             });
-
-            if (amelie) {
-                utterance.voice = amelie;
-            } else {
-                const cleanFr = voices.filter(v => v.lang.toLowerCase().startsWith('fr') && !v.name.toLowerCase().includes('shelley') && !v.name.toLowerCase().includes('grandma'));
-                if (cleanFr.length > 0) utterance.voice = cleanFr[0];
-            }
-
+            if (amelie) utterance.voice = amelie;
             window.speechSynthesis.speak(utterance);
         }
 
@@ -328,51 +307,50 @@
 
             const voices = window.speechSynthesis.getVoices();
             const samanthas = voices.filter(v => v.name.toLowerCase().includes('samantha'));
-            if (samanthas.length > 0) {
-                utterance.voice = samanthas[samanthas.length - 1];
-            }
-
+            if (samanthas.length > 0) utterance.voice = samanthas[samanthas.length - 1];
             window.speechSynthesis.speak(utterance);
         }
 
         function loadSavedData() {
-            const saved = localStorage.getItem('french_trainer_data');
+            const saved = localStorage.getItem('french_chunk_structured_data');
             if (saved) {
                 try {
                     globalData = JSON.parse(saved);
                     if (!globalData.chunks) globalData.chunks = [];
-                    if (!globalData.verbs) globalData.verbs = [];
                 } catch(e) {
-                    globalData = { chunks: [], verbs: [] };
+                    globalData = { chunks: [] };
                 }
             }
             updateCounters();
         }
 
         function saveData() {
-            localStorage.setItem('french_trainer_data', JSON.stringify(globalData));
+            localStorage.setItem('french_chunk_structured_data', JSON.stringify(globalData));
             updateCounters();
         }
 
         function updateCounters() {
-            const totalItems = globalData.chunks.length + globalData.verbs.reduce((acc, v) => acc + v.pairs.length, 0);
-            document.getElementById('total-database-counter').textContent = `Loaded: ${totalItems} items in your system`;
+            document.getElementById('total-database-counter').textContent = `Loaded: ${globalData.chunks.length} full sets in system`;
         }
 
         function clearAllData() {
-            if(confirm("Are you sure you want to delete ALL accumulated words and verbs? This cannot be undone.")) {
-                localStorage.removeItem('french_trainer_data');
-                globalData = { chunks: [], verbs: [] };
+            if(confirm("Are you sure you want to delete ALL data?")) {
+                localStorage.removeItem('french_chunk_structured_data');
+                globalData = { chunks: [] };
                 flashcardQueue = [];
                 updateCounters();
                 renderListView();
-                document.getElementById('raw-data').value = '';
-                alert("Database completely cleared!");
+                alert("Cleared!");
             }
         }
 
+        function toggleAccordion(id) {
+            const el = document.getElementById(id);
+            el.classList.toggle('open');
+        }
+
         function deleteChunk(index) {
-            if(confirm("Delete this item?")) {
+            if(confirm("Delete this entire set including its examples?")) {
                 globalData.chunks.splice(index, 1);
                 saveData();
                 renderListView();
@@ -380,112 +358,113 @@
             }
         }
 
-        function deleteVerbPair(verbIndex, pairIndex) {
-            if(confirm("Delete this specific example line?")) {
-                globalData.verbs[verbIndex].pairs.splice(pairIndex, 1);
-                if(globalData.verbs[verbIndex].pairs.length === 0) {
-                    globalData.verbs.splice(verbIndex, 1);
-                }
-                saveData();
-                renderListView();
-                flashcardQueue = [];
-            }
-        }
-
-        // 🌟 修正：フランス語と英語を両方ダイレクトに直せるように改修
-        function editChunk(index) {
-            const chunk = globalData.chunks[index];
-            const newFr = prompt("✏️ Edit French text:", chunk.fr);
-            if (newFr === null) return; // キャンセル時
+        // フランス語メイン、英訳メイン、および各例文の編集に対応
+        function editChunkSet(index) {
+            const set = globalData.chunks[index];
             
-            const newEn = prompt("✏️ Edit English translation (Leave empty if none):", chunk.en || "");
-            if (newEn === null) return;
-
-            globalData.chunks[index].fr = newFr.trim();
-            globalData.chunks[index].en = newEn.trim();
-            saveData();
-            renderListView();
-            flashcardQueue = [];
-        }
-
-        function editVerbPair(verbIndex, pairIndex) {
-            const pair = globalData.verbs[verbIndex].pairs[pairIndex];
-            const newFr = prompt("✏️ Edit French text:", pair.fr);
+            const newFr = prompt("✏️ Edit MAIN French:", set.mainFr);
             if (newFr === null) return;
-            
-            const newEn = prompt("✏️ Edit English translation (Leave empty if none):", pair.en || "");
+            const newEn = prompt("✏️ Edit MAIN English:", set.mainEn);
             if (newEn === null) return;
+            
+            set.mainFr = newFr.trim();
+            set.mainEn = newEn.trim();
 
-            globalData.verbs[verbIndex].pairs[pairIndex].fr = newFr.trim();
-            globalData.verbs[verbIndex].pairs[pairIndex].en = newEn.trim();
-            saveData();
-            renderListView();
-            flashcardQueue = [];
-        }
-
-        function processData() {
-            const rawText = document.getElementById('raw-data').value;
-            if (!rawText.trim()) {
-                alert("Please paste some text first!");
-                return;
-            }
-
-            flashcardQueue = []; 
-            const blocks = rawText.split(/\n(?=(?:\d+\.\s+[A-ZÀ-ÿa-z]|J’|Je|Tu|Il|Elle|Nous|Vous|Ils))/g);
-
-            blocks.forEach(block => {
-                const lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                if (lines.length === 0) return;
-
-                const firstLine = lines[0];
-
-                if (firstLine.match(/^\d+\.\s+\w+/) && (firstLine.includes('(') || firstLine.includes('to '))) {
-                    let header = firstLine;
-                    let pairs = [];
-                    
-                    for (let i = 1; i < lines.length; i++) {
-                        if (lines[i] && lines[i+1] && !lines[i].match(/^\d/) && !lines[i+1].match(/^\d/)) {
-                            pairs.push({ fr: lines[i], en: lines[i+1] });
-                            i++;
-                        }
-                    }
-                    if (pairs.length > 0) {
-                        if (!globalData.verbs.some(v => v.header === header)) {
-                            globalData.verbs.push({ header: header, pairs: pairs });
-                        }
-                    }
-                } 
-                else {
-                    let frChunk = firstLine.replace(/^\d+[\.\s]+/, '').trim();
-                    if (globalData.chunks.some(c => c.fr === frChunk)) return;
-
-                    let ipa = lines.find(l => l.startsWith('[')) || '';
-                    let katakana = lines.find(l => l.match(/^[\u30a0-\u30ff\u3040-\u309f\u30fc、・\s〜~]+$/)) || '';
-                    let noteLines = lines.filter(l => l.startsWith('※') || l.startsWith('•'));
-                    let note = noteLines.join('\n');
-
-                    let jpMeaning = lines.find(l => l.startsWith('～') || (l.match(/^[\u4e00-\u9faf\u3040-\u309f/、]+/) && !l.startsWith('※'))) || '';
-                    
-                    let enMeaning = lines.find(l => {
-                        const isIpa = l.startsWith('[');
-                        const isJp = l.match(/[\u4e00-\u9faf\u3040-\u309f]/);
-                        const isHeader = (l === firstLine);
-                        const isNote = l.startsWith('※') || l.startsWith('•');
-                        return !isIpa && !isJp && !isHeader && !isNote && l.length > 0;
-                    }) || '';
-
-                    if (frChunk) {
-                        globalData.chunks.push({
-                            fr: frChunk, ipa: ipa, katakana: katakana, jp: jpMeaning, en: enMeaning.trim(), note: note
-                        });
-                    }
-                }
+            // 例文3つについても個別にクイック確認・編集
+            set.examples.forEach((ex, idx) => {
+                const exFr = prompt(`✏️ Edit [Example ${idx+1}] French:`, ex.fr);
+                if (exFr !== null) ex.fr = exFr.trim();
+                const exEn = prompt(`✏️ Edit [Example ${idx+1}] English:`, ex.en);
+                if (exEn !== null) ex.en = exEn.trim();
             });
 
             saveData();
             renderListView();
-            document.getElementById('raw-data').value = ''; 
-            alert("Added successfully!");
+            flashcardQueue = [];
+        }
+
+        /* 🌟 ユーザー指定フォーマット専用の超高精度パースエンジン */
+        function processStructuredData() {
+            const rawText = document.getElementById('raw-data').value;
+            if (!rawText.trim()) return;
+
+            const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            
+            if (lines.length < 3) {
+                alert("Data format seems too short. Make sure you copy the entire block.");
+                return;
+            }
+
+            // 1. メイン情報パーツの切り出し
+            let mainFr = lines[0];
+            let mainIpa = lines[1].startsWith('[') ? lines[1] : '';
+            
+            // 英訳のサーチ
+            let mainEn = '';
+            let enIndex = mainIpa ? 2 : 1;
+            if (lines[enIndex] && !lines[enIndex].startsWith('※') && !lines[enIndex].startsWith('•')) {
+                mainEn = lines[enIndex];
+            }
+
+            // 説明ノート文のまとめ
+            let notes = [];
+            lines.forEach(l => {
+                if (l.startsWith('※') || l.startsWith('•')) {
+                    notes.push(l);
+                }
+            });
+            let explanation = notes.join('\n');
+
+            // 2. 残りの行から「フランス語行 → 発音記号行 → 英訳行」の3連リピートパターン（例文1〜3）を完璧に抽出
+            let examples = [];
+            
+            // 説明文より後ろにある、純粋な例文と思われるペアを探す
+            for (let i = 2; i < lines.length; i++) {
+                let line = lines[i];
+                
+                // フランス語の文、かつ説明記号でも発音記号でもなく、メインタイトルでもない行
+                if (line !== mainFr && !line.startsWith('[') && !line.startsWith('※') && !line.startsWith('•') && line !== mainEn) {
+                    
+                    // 次の行が発音記号、その次が英語の塊なら完璧な3連続マッチ
+                    if (lines[i+1] && lines[i+1].startsWith('[') && lines[i+2]) {
+                        examples.push({
+                            fr: line,
+                            ipa: lines[i+1],
+                            en: lines[i+2]
+                        });
+                        i += 2; // インデックスを3行分進める
+                    } 
+                    // 発音記号をスキップして英語が直接来ているイレギュラー対応
+                    else if (lines[i+1] && !lines[i+1].startsWith('[') && !lines[i+1].startsWith('※') && !lines[i+1].startsWith('•') && lines[i+1].match(/[a-zA-Z]/)) {
+                        examples.push({
+                            fr: line,
+                            ipa: '',
+                            en: lines[i+1]
+                        });
+                        i += 1;
+                    }
+                }
+            }
+
+            // データのダブり防止ガード
+            if (globalData.chunks.some(c => c.mainFr === mainFr)) {
+                alert("This chunk already exists!");
+                return;
+            }
+
+            // データベースへ構造化保存
+            globalData.chunks.push({
+                mainFr: mainFr,
+                mainIpa: mainIpa,
+                mainEn: mainEn,
+                explanation: explanation,
+                examples: examples
+            });
+
+            saveData();
+            renderListView();
+            document.getElementById('raw-data').value = '';
+            alert("Perfectly imported! Check 'Daily List' and 'Flashcards'.");
             switchTab('list-panel');
         }
 
@@ -493,64 +472,56 @@
             const container = document.getElementById('list-container');
             container.innerHTML = '';
 
-            if (globalData.chunks.length === 0 && globalData.verbs.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No saved data found. Add data using the first tab!</p>';
+            if (globalData.chunks.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No sets found. Add ChatGPT output above!</p>';
                 return;
             }
 
-            if (globalData.chunks.length > 0) {
-                container.innerHTML += '<h2>🧩 Accumulated Items</h2>';
-                globalData.chunks.forEach((chunk, index) => {
-                    let safeFr = chunk.fr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    container.innerHTML += `
-                        <div class="chunk-block">
-                            <!-- 🌟 テキストを最優先。タップでアメリちゃん再生 -->
-                            <div class="clickable-fr" onclick="speakFrench('${safeFr}')">${chunk.fr}</div>
-                            <div class="ipa-text">${chunk.ipa} ${chunk.katakana}</div>
-                            <div class="meaning-text">${chunk.jp ? chunk.jp + ' / ' : ''}${chunk.en}</div>
-                            ${chunk.note ? `<div class="note-text">${chunk.note}</div>` : ''}
-                            
-                            <!-- 🌟 ボタンは下部へ移動、絵文字のみでスタイリッシュに -->
-                            <div class="item-footer-controls">
-                                <button class="btn-emoji-only" onclick="editChunk(${index})" title="Edit">✏️</button>
-                                <button class="btn-emoji-only" onclick="deleteChunk(${index})" title="Delete">🗑️</button>
-                            </div>
+            globalData.chunks.forEach((chunk, index) => {
+                let safeMainFr = chunk.mainFr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                
+                // 例文たちのHTML生成
+                let examplesHtml = '';
+                chunk.examples.forEach((ex) => {
+                    let safeExFr = ex.fr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    examplesHtml += `
+                        <div class="sentence-item">
+                            <div class="fr-side-clickable" onclick="speakFrench('${safeExFr}')">${ex.fr}</div>
+                            <div class="ipa-text" style="font-size:12px;">${ex.ipa}</div>
+                            <div class="en-side">${ex.en}</div>
                         </div>
                     `;
                 });
-            }
 
-            if (globalData.verbs.length > 0) {
-                container.innerHTML += '<h2>⚡ Verb Practices</h2>';
-                globalData.verbs.forEach((v, vIndex) => {
-                    let pHtml = '';
-                    v.pairs.forEach((p, pIndex) => {
-                        let safeFr = p.fr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                        pHtml += `
-                            <div class="sentence-item">
-                                <div class="fr-side-clickable" onclick="speakFrench('${safeFr}')">${p.fr}</div>
-                                <div class="en-side">${p.en}</div>
-                                
-                                <!-- 🌟 例文の下部にもコンパクトに配置 -->
-                                <div class="item-footer-controls" style="margin-top: 8px; border-top: none; padding-top: 0;">
-                                    <button class="btn-emoji-only" style="font-size: 15px;" onclick="editVerbPair(${vIndex}, ${pIndex})">✏️</button>
-                                    <button class="btn-emoji-only" style="font-size: 15px;" onclick="deleteVerbPair(${vIndex}, ${pIndex})">🗑️</button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    container.innerHTML += `
-                        <div class="verb-block">
-                            <div style="font-size: 18px; font-weight: bold; color: #e74c3c; margin-bottom: 5px;">${v.header}</div>
-                            ${pHtml}
+                // アコーディオン構造でリストを出力
+                container.innerHTML += `
+                    <div class="chunk-block">
+                        <div class="clickable-fr" onclick="speakFrench('${safeMainFr}')">${chunk.mainFr}</div>
+                        <div class="ipa-text">${chunk.mainIpa}</div>
+                        <div class="meaning-text">${chunk.mainEn}</div>
+                        ${chunk.explanation ? `<div class="note-text">${chunk.explanation}</div>` : ''}
+                        
+                        <button class="accordion-toggle" onclick="toggleAccordion('examples-${index}')">
+                            <span>📄 例文 (${chunk.examples.length}個) を表示 / 非表示</span>
+                            <span>▼</span>
+                        </button>
+                        
+                        <div class="accordion-content" id="examples-${index}">
+                            ${examplesHtml || '<p style="color:#95a5a6; font-size:12px;">No examples parsed.</p>'}
                         </div>
-                    `;
-                });
-            }
+
+                        <div class="item-footer-controls">
+                            <button class="btn-emoji-only" onclick="editChunkSet(${index})">✏️</button>
+                            <button class="btn-emoji-only" onclick="deleteChunk(index)">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
         }
 
+        /* 🌟 フラッシュカードは「例文のみ」を抽出してシャッフル */
         function initFlashcards() {
-            if (globalData.chunks.length === 0 && globalData.verbs.length === 0) {
+            if (globalData.chunks.length === 0) {
                 document.getElementById('card-view-wrapper').style.display = 'none';
                 document.getElementById('card-empty-message').style.display = 'block';
                 return;
@@ -560,16 +531,16 @@
             document.getElementById('card-empty-message').style.display = 'none';
 
             if (flashcardQueue.length === 0) {
-                globalData.chunks.forEach(c => {
-                    if(c.fr) {
-                        let backSideText = c.en ? c.en : "No English translation available";
-                        flashcardQueue.push({ fr: c.fr, en: backSideText });
-                    }
-                });
-                globalData.verbs.forEach(v => {
-                    v.pairs.forEach(p => { if(p.fr) flashcardQueue.push({ fr: p.fr, en: p.en || "No English translation available" }); });
+                // すべての登録データから「例文1〜3」のフレーズだけをかき集める
+                globalData.chunks.forEach(chunk => {
+                    chunk.examples.forEach(ex => {
+                        if (ex.fr && ex.en) {
+                            flashcardQueue.push({ fr: ex.fr, en: ex.en });
+                        }
+                    });
                 });
                 
+                // カードを完全にランダムシャッフル
                 flashcardQueue.sort(() => Math.random() - 0.5);
                 currentCardIndex = 0;
             }
@@ -578,8 +549,8 @@
 
         function showCard() {
             if (flashcardQueue.length === 0 || currentCardIndex >= flashcardQueue.length) {
-                document.getElementById('card-front-text').textContent = "🎉 Review Completed!";
-                document.getElementById('card-back-text').textContent = "Excellent practice!";
+                document.getElementById('card-front-text').textContent = "🎉 Examples Completed!";
+                document.getElementById('card-back-text').textContent = "Great job reading all examples!";
                 document.getElementById('card-progress').textContent = "Completed!";
                 return;
             }
