@@ -239,11 +239,15 @@
         let globalData = { chunks: [], verbs: [] };
         let flashcardQueue = [];
         let currentCardIndex = 0;
-        let currentAudio = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedData();
             renderListView();
+            
+            // Warm up system speech engines on load
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.getVoices();
+            }
         });
 
         function switchTab(panelId) {
@@ -258,28 +262,61 @@
             }
         }
 
-        // --- SAFE GOOGLE TTS AUDIO ENGINE (TOUCH-TRIGGER ONLY) ---
+        // --- THE DEFINITIVE ROBOT-EXCLUSION SPEECH ENGINE ---
         function speakFrench(text) {
-            try {
-                if (currentAudio) {
-                    currentAudio.pause();
-                    currentAudio.currentTime = 0;
+            if (!('speechSynthesis' in window)) return;
+            
+            window.speechSynthesis.cancel(); // Reset engine
+
+            let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim(); 
+            if (!cleanText) return;
+
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'fr-FR';
+            utterance.rate = 0.90; 
+            utterance.pitch = 1.0; 
+
+            const voices = window.speechSynthesis.getVoices();
+            
+            // 🚫 CRITICAL BLACKLIST: Completely ban Thomas and Nicolas (Robot-boys)
+            const filteredVoices = voices.filter(v => {
+                const name = v.name.toLowerCase();
+                return v.lang.toLowerCase().startsWith('fr') && !name.includes('thomas') && !name.includes('nicolas');
+            });
+
+            let targetVoice = null;
+
+            if (filteredVoices.length > 0) {
+                // 1. First priority: Aurélie or Audrey downloaded assets
+                targetVoice = filteredVoices.find(v => {
+                    const n = v.name.toLowerCase();
+                    return n.includes('aurélie') || n.includes('aurelie') || n.includes('audrey');
+                });
+
+                // 2. Second priority: Siri (High-quality female asset)
+                if (!targetVoice) {
+                    targetVoice = filteredVoices.find(v => v.name.toLowerCase().includes('siri'));
                 }
 
-                let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim(); 
-                if (!cleanText) return;
+                // 3. Third priority: Any premium/enhanced tagged options left
+                if (!targetVoice) {
+                    targetVoice = filteredVoices.find(v => v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced'));
+                }
 
-                const encText = encodeURIComponent(cleanText);
-                // Secure web fallback
-                const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=fr&client=tw-ob&q=${encText}`;
-                
-                currentAudio = new Audio(googleTtsUrl);
-                currentAudio.play().catch(e => {
-                    console.log("iOS security intercepted automatic stream:", e);
-                });
-            } catch (err) {
-                console.error(err);
+                // 4. Ultimate fallback: Just use the first non-robot voice in the list
+                if (!targetVoice) {
+                    targetVoice = filteredVoices[0];
+                }
+            } else {
+                // Total emergency fallback if list filtering broke completely
+                targetVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr'));
             }
+
+            if (targetVoice) {
+                utterance.voice = targetVoice;
+            }
+
+            window.speechSynthesis.speak(utterance);
         }
 
         function loadSavedData() {
@@ -474,7 +511,8 @@
             
             document.getElementById('flashcard').classList.remove('flipped');
             
-            // REMOVED AUTOMATIC SPEAK TO BYPASS iOS SECURITY BLOCKS
+            // Auto play with physical device trigger allowance
+            setTimeout(() => { speakFrench(card.fr); }, 300);
         }
 
         function toggleCardFlip() {
