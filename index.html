@@ -180,7 +180,7 @@
             return document.querySelector('input[name="language"]:checked').value;
         }
 
-        // 🌟 1. TTS Control with Amélie Fix Included
+        // 🌟 1. TTS Control with Zoe & Amélie Perfect Target Lock
         btnListen.addEventListener('click', () => {
             if ('speechSynthesis' in window) {
                 if (window.speechSynthesis.paused) {
@@ -195,40 +195,32 @@
                 const currentLang = getSelectedLanguage();
                 
                 utterance.lang = currentLang === 'en' ? 'en-US' : 'fr-FR';
-                utterance.rate = 0.95; // ほんの少しだけリスニングしやすく調整（1.0 → 0.95）
+                utterance.rate = 0.95; 
 
                 const allVoices = window.speechSynthesis.getVoices();
                 
                 if (currentLang === 'fr') {
-                    // 【アメリちゃん一本釣り】最優先でAmélieを探し出します
+                    // 【アメリちゃん一本釣り】
                     const amelie = allVoices.find(v => {
                         const n = v.name.toLowerCase();
                         return n.includes('amélie') || n.includes('amelie');
                     });
-
                     if (amelie) {
                         utterance.voice = amelie;
                     } else {
-                        // 防御用：Shelleyたちノイズ系を除外してフランス語音声を探す
-                        const cleanFr = allVoices.filter(v => {
-                            const n = v.name.toLowerCase();
-                            return v.lang.toLowerCase().startsWith('fr') && !n.includes('shelley') && !n.includes('grandma') && !n.includes('rocko');
-                        });
+                        const cleanFr = allVoices.filter(v => v.lang.toLowerCase().startsWith('fr') && !v.name.toLowerCase().includes('shelley'));
                         if (cleanFr.length > 0) utterance.voice = cleanFr[0];
                     }
                 } else if (currentLang === 'en') {
-                    // 英語は元のZoe優先ロジックをベースに、無ければ高品質ボイスへ
-                    const zoe = allVoices.find(v => v.lang.toLowerCase().startsWith('en') && v.name.toLowerCase().includes('zoe'));
+                    // 🌟【Zoeちゃん完全一本釣り固定】
+                    const zoe = allVoices.find(v => v.name.toLowerCase().includes('zoe'));
+                    
                     if (zoe) {
                         utterance.voice = zoe;
                     } else {
-                        const premiumEn = allVoices.find(v => v.lang.toLowerCase().startsWith('en') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced') || v.name.toLowerCase().includes('siri')));
-                        if (premiumEn) {
-                            utterance.voice = premiumEn;
-                        } else {
-                            const anyEn = allVoices.find(v => v.lang.toLowerCase().startsWith('en'));
-                            if (anyEn) utterance.voice = anyEn;
-                        }
+                        // 万が一Zoeちゃんがいなかったときの高品質英語ボイスバックアップ
+                        const premiumEn = allVoices.find(v => v.lang.toLowerCase().startsWith('en') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced')));
+                        if (premiumEn) utterance.voice = premiumEn;
                     }
                 }
 
