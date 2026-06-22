@@ -242,18 +242,67 @@
         let globalData = { chunks: [], verbs: [] };
         let flashcardQueue = [];
         let currentCardIndex = 0;
+        let cachedVoice = null;
+
+        // --- ANTI-iOS BUG: PERSISTENT VOICE FINDER ---
+        function findBestFrenchVoice() {
+            if (!('speechSynthesis' in window)) return null;
+            const voices = window.speechSynthesis.getVoices();
+            
+            // 1. Target Aurélie or Audrey directly
+            let voice = voices.find(v => {
+                const name = v.name.toLowerCase();
+                return v.lang.toLowerCase().startsWith('fr') && (name.includes('aurélie') || name.includes('aurelie') || name.includes('audrey'));
+            });
+            
+            // 2. Fallback to Siri
+            if (!voice) voice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && v.name.toLowerCase().includes('siri'));
+            
+            // 3. Fallback to Premium assets
+            if (!voice) voice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced')));
+            
+            // 4. Fallback to any non-male voice to avoid default Thomas robot
+            if (!voice) voice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && !v.name.toLowerCase().includes('thomas') && !v.name.toLowerCase().includes('nicolas'));
+            
+            // 5. Ultimate fallback
+            if (!voice) voice = voices.find(v => v.lang.toLowerCase().startsWith('fr'));
+            
+            return voice;
+        }
+
+        // Keep polling the system until iOS decides to release the real voice list
+        function initVoiceSystem() {
+            if (!('speechSynthesis' in window)) return;
+            
+            cachedVoice = findBestFrenchVoice();
+            
+            // Interval loop: force iOS Safari to refresh its voice list every 250ms until Aurélie is captured
+            let attempts = 0;
+            const voiceInterval = setInterval(() => {
+                window.speechSynthesis.getVoices(); // Force load
+                let testVoice = findBestFrenchVoice();
+                if (testVoice) {
+                    cachedVoice = testVoice;
+                    // If we successfully broke the robot cache and got a premium voice, clear interval
+                    if (testVoice.name.toLowerCase().includes('aurélie') || testVoice.name.toLowerCase().includes('aurelie') || testVoice.name.toLowerCase().includes('siri')) {
+                        clearInterval(voiceInterval);
+                    }
+                }
+                attempts++;
+                if (attempts > 20) clearInterval(voiceInterval); // Safety stop after 5 seconds
+            }, 250);
+
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    cachedVoice = findBestFrenchVoice();
+                };
+            }
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedData();
             renderListView();
-            
-            // Force-load voices multiple times to crack iOS cache stubbornness
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.getVoices();
-                if (window.speechSynthesis.onvoiceschanged !== undefined) {
-                    window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
-                }
-            }
+            initVoiceSystem();
         });
 
         function switchTab(panelId) {
@@ -268,7 +317,6 @@
             }
         }
 
-        // --- DIRECT BOOTLEG INJECTION FOR AURÉLIE ---
         function speakFrench(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); 
@@ -276,34 +324,15 @@
                 let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim(); 
                 const utterance = new SpeechSynthesisUtterance(cleanText);
                 utterance.lang = 'fr-FR';
-                utterance.rate = 0.90; // Natural pacing
+                utterance.rate = 0.90; 
                 utterance.pitch = 1.0; 
 
-                const voices = window.speechSynthesis.getVoices();
-                
-                // Absolute Priority: Target Aurélie or Audrey downloaded premium assets directly
-                let selectedVoice = voices.find(v => {
-                    const name = v.name.toLowerCase();
-                    return v.lang.toLowerCase().startsWith('fr') && (name.includes('aurélie') || name.includes('aurelie') || name.includes('audrey'));
-                });
-                
-                // Fallback 1: Siri female high-quality
-                if (!selectedVoice) {
-                    selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && v.name.toLowerCase().includes('siri'));
-                }
+                // Try one immediate live lookup to grab the fresh asset
+                let liveVoice = findBestFrenchVoice();
+                if (liveVoice) cachedVoice = liveVoice;
 
-                // Fallback 2: Any premium tagged engine
-                if (!selectedVoice) {
-                    selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced')));
-                }
-
-                // Fallback 3: Standard female bypass (skip default robot Thomas/Nicolas if present)
-                if (!selectedVoice) {
-                    selectedVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && !v.name.toLowerCase().includes('thomas') && !v.name.toLowerCase().includes('nicolas'));
-                }
-
-                if (selectedVoice) {
-                    utterance.voice = selectedVoice;
+                if (cachedVoice) {
+                    utterance.voice = cachedVoice;
                 }
 
                 window.speechSynthesis.speak(utterance);
