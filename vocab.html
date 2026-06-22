@@ -82,12 +82,42 @@
             border-radius: 12px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.05);
             margin-bottom: 15px;
+            position: relative; /* ボタン配置用 */
         }
-        .chunk-header { font-size: 20px; font-weight: bold; color: #2980b9; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .chunk-header { font-size: 20px; font-weight: bold; color: #2980b9; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-right: 90px; }
         .ipa-text { color: #7f8c8d; font-size: 14px; font-style: italic; margin: 4px 0 8px 0; }
         .meaning-text { color: #27ae60; font-weight: bold; font-size: 17px; margin: 8px 0; }
         .note-text { color: #e67e22; font-size: 13px; margin-top: 12px; white-space: pre-line; line-height: 1.4; background: #fff5e6; padding: 10px; border-radius: 6px; }
         
+        /* 🛠️ 編集・削除ボタンのスタイル */
+        .item-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 5px;
+        }
+        .btn-inline-edit {
+            background: #f1c40f;
+            color: #2c3e50;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-inline-delete {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
         .sentence-item {
             background: #f8f9fa;
             padding: 10px 12px;
@@ -98,8 +128,9 @@
             align-items: center;
             gap: 10px;
             border-left: 3px solid #e74c3c;
+            position: relative;
         }
-        .fr-side { font-weight: 600; color: #2c3e50; font-size: 15px; }
+        .fr-side { font-weight: 600; color: #2c3e50; font-size: 15px; padding-right: 40px; }
         .en-side { font-size: 13px; color: #7f8c8d; margin-top: 2px; }
         
         .btn-speak-mini {
@@ -162,7 +193,7 @@
             transform: rotateY(180deg);
         }
         .card-fr { font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
-        .card-en { font-size: 20px; font-500; color: #ecf0f1; }
+        .card-en { font-size: 20px; font-weight: 500; color: #ecf0f1; }
         
         .card-controls {
             display: flex;
@@ -274,7 +305,6 @@
             utterance.rate = 0.88; 
 
             const voices = window.speechSynthesis.getVoices();
-            // 【アメリちゃん一本釣り】
             const amelie = voices.find(v => {
                 const n = v.name.toLowerCase();
                 return n.includes('amélie') || n.includes('amelie');
@@ -292,15 +322,16 @@
 
         function speakEnglish(text) {
             if (!('speechSynthesis' in window)) return;
-            // カードの裏面（英語）を読み上げる用
+            window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'en-US';
             utterance.rate = 0.95;
 
             const voices = window.speechSynthesis.getVoices();
-            // 🌟【Zoeちゃん一本釣り】
-            const zoe = voices.find(v => v.name.toLowerCase().includes('zoe'));
-            if (zoe) utterance.voice = zoe;
+            const samanthas = voices.filter(v => v.name.toLowerCase().includes('samantha'));
+            if (samanthas.length > 0) {
+                utterance.voice = samanthas[samanthas.length - 1];
+            }
 
             window.speechSynthesis.speak(utterance);
         }
@@ -341,6 +372,58 @@
             }
         }
 
+        // 🛠️ 1件ずつの削除機能
+        function deleteChunk(index) {
+            if(confirm("Delete this item?")) {
+                globalData.chunks.splice(index, 1);
+                saveData();
+                renderListView();
+                flashcardQueue = []; // キューをリセット
+            }
+        }
+
+        function deleteVerbPair(verbIndex, pairIndex) {
+            if(confirm("Delete this specific example line?")) {
+                globalData.verbs[verbIndex].pairs.splice(pairIndex, 1);
+                // ペアが空になったら動詞のグループごと削除
+                if(globalData.verbs[verbIndex].pairs.length === 0) {
+                    globalData.verbs.splice(verbIndex, 1);
+                }
+                saveData();
+                renderListView();
+                flashcardQueue = [];
+            }
+        }
+
+        // 🛠️ 1件ずつの編集機能
+        function editChunk(index) {
+            const chunk = globalData.chunks[index];
+            const newFr = prompt("Edit French text:", chunk.fr);
+            if (newFr === null) return; // キャンセル
+            const newEn = prompt("Edit English translation:", chunk.en);
+            if (newEn === null) return;
+
+            globalData.chunks[index].fr = newFr.trim();
+            globalData.chunks[index].en = newEn.trim();
+            saveData();
+            renderListView();
+            flashcardQueue = [];
+        }
+
+        function editVerbPair(verbIndex, pairIndex) {
+            const pair = globalData.verbs[verbIndex].pairs[pairIndex];
+            const newFr = prompt("Edit French text:", pair.fr);
+            if (newFr === null) return;
+            const newEn = prompt("Edit English translation:", pair.en);
+            if (newEn === null) return;
+
+            globalData.verbs[verbIndex].pairs[pairIndex].fr = newFr.trim();
+            globalData.verbs[verbIndex].pairs[pairIndex].en = newEn.trim();
+            saveData();
+            renderListView();
+            flashcardQueue = [];
+        }
+
         function processData() {
             const rawText = document.getElementById('raw-data').value;
             if (!rawText.trim()) {
@@ -363,10 +446,9 @@
                     
                     for (let i = 1; i < lines.length; i++) {
                         if (lines[i] && lines[i+1] && !lines[i].match(/^\d/) && !lines[i+1].match(/^\d/)) {
-                            if (lines[i+1].toLowerCase().includes('i am') || lines[i+1].toLowerCase().includes('you ') || lines[i+1].toLowerCase().includes('i have') || lines[i+1].toLowerCase().includes('tea') || lines[i+1].toLowerCase().includes('coffee')) {
-                                pairs.push({ fr: lines[i], en: lines[i+1] });
-                                i++;
-                            }
+                            // 動詞例文パースの条件を少し緩和
+                            pairs.push({ fr: lines[i], en: lines[i+1] });
+                            i++;
                         }
                     }
                     if (pairs.length > 0) {
@@ -375,8 +457,8 @@
                         }
                     }
                 } 
-                else if (lines.some(l => l.startsWith('[')) || lines.some(l => l.match(/^\d+\./))) {
-                    let frChunk = firstLine;
+                else {
+                    let frChunk = firstLine.replace(/^\d+[\.\s]+/, '').trim(); // 数字を除去
                     if (globalData.chunks.some(c => c.fr === frChunk)) return;
 
                     let ipa = lines.find(l => l.startsWith('[')) || '';
@@ -385,11 +467,22 @@
                     let note = noteLines.join('\n');
 
                     let jpMeaning = lines.find(l => l.startsWith('～') || (l.match(/^[\u4e00-\u9faf\u3040-\u309f/、]+/) && !l.startsWith('※'))) || '';
-                    let enMeaning = lines.find(l => l.toLowerCase().includes('want') || l.toLowerCase().includes('think') || l.toLowerCase().includes('go') || l.toLowerCase().includes('drink') || l.toLowerCase().includes('do') || (l.match(/^[A-Za-z\s'’,/!]+$/) && !l.startsWith('['))) || '';
+                    
+                    // 🌟 英語抽出ロジックの大幅強化
+                    // 日本語、IPA、記号、フランス語自身ではない行を「英語」として賢く判定
+                    let enMeaning = lines.find(l => {
+                        const isIpa = l.startsWith('[');
+                        const isJp = l.match(/[\u4e00-\u9faf\u3040-\u309f]/);
+                        const isHeader = (l === firstLine);
+                        const isNote = l.startsWith('※') || l.startsWith('•');
+                        return !isIpa && !isJp && !isHeader && !isNote && l.length > 0;
+                    }) || '';
 
-                    globalData.chunks.push({
-                        fr: frChunk, ipa: ipa, katakana: katakana, jp: jpMeaning, en: enMeaning, note: note
-                    });
+                    if (frChunk) {
+                        globalData.chunks.push({
+                            fr: frChunk, ipa: ipa, katakana: katakana, jp: jpMeaning, en: enMeaning.trim(), note: note
+                        });
+                    }
                 }
             });
 
@@ -411,10 +504,14 @@
 
             if (globalData.chunks.length > 0) {
                 container.innerHTML += '<h2>🧩 Accumulated Items</h2>';
-                globalData.chunks.forEach(chunk => {
+                globalData.chunks.forEach((chunk, index) => {
                     let safeFr = chunk.fr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     container.innerHTML += `
                         <div class="chunk-block">
+                            <div class="item-controls">
+                                <button class="btn-inline-edit" onclick="editChunk(${index})">✏️ Edit</button>
+                                <button class="btn-inline-delete" onclick="deleteChunk(${index})">🗑️ Delete</button>
+                            </div>
                             <div class="chunk-header">
                                 <span>${chunk.fr}</span>
                                 <button class="btn-speak-mini" style="margin:0;" onclick="speakFrench('${safeFr}')">🔊</button>
@@ -429,9 +526,9 @@
 
             if (globalData.verbs.length > 0) {
                 container.innerHTML += '<h2>⚡ Verb Practices</h2>';
-                globalData.verbs.forEach(v => {
+                globalData.verbs.forEach((v, vIndex) => {
                     let pHtml = '';
-                    v.pairs.forEach(p => {
+                    v.pairs.forEach((p, pIndex) => {
                         let safeFr = p.fr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                         pHtml += `
                             <div class="sentence-item">
@@ -439,7 +536,13 @@
                                     <div class="fr-side">${p.fr}</div>
                                     <div class="en-side">${p.en}</div>
                                 </div>
-                                <button class="btn-speak-mini" style="margin:0;" onclick="speakFrench('${safeFr}')">🔊</button>
+                                <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
+                                    <button class="btn-speak-mini" style="margin:0;" onclick="speakFrench('${safeFr}')">🔊</button>
+                                    <div style="display:flex; gap:2px;">
+                                        <button class="btn-inline-edit" style="padding:2px 4px; font-size:9px;" onclick="editVerbPair(${vIndex}, ${pIndex})">✏️</button>
+                                        <button class="btn-inline-delete" style="padding:2px 4px; font-size:9px;" onclick="deleteVerbPair(${vIndex}, ${pIndex})">🗑️</button>
+                                    </div>
+                                </div>
                             </div>
                         `;
                     });
@@ -465,10 +568,14 @@
 
             if (flashcardQueue.length === 0) {
                 globalData.chunks.forEach(c => {
-                    if(c.fr && (c.en || c.jp)) flashcardQueue.push({ fr: c.fr, en: c.en || c.jp });
+                    // 英語データがあれば英語を最優先、なければ日本語をバックアップに
+                    if(c.fr) {
+                        let backSideText = c.en ? c.en : (c.jp ? c.jp : "No translation available");
+                        flashcardQueue.push({ fr: c.fr, en: backSideText });
+                    }
                 });
                 globalData.verbs.forEach(v => {
-                    v.pairs.forEach(p => { if(p.fr && p.en) flashcardQueue.push({ fr: p.fr, en: p.en }); });
+                    v.pairs.forEach(p => { if(p.fr) flashcardQueue.push({ fr: p.fr, en: p.en || "No translation available" }); });
                 });
                 
                 flashcardQueue.sort(() => Math.random() - 0.5);
@@ -502,11 +609,12 @@
             const fc = document.getElementById('flashcard');
             fc.classList.toggle('flipped');
             
-            // カードが裏返って英語が見えたら、Zoeちゃんに英語を喋らせる
             if (fc.classList.contains('flipped') && currentCardIndex < flashcardQueue.length) {
-                setTimeout(() => {
-                    speakEnglish(flashcardQueue[currentCardIndex].en);
-                }, 200);
+                const enText = flashcardQueue[currentCardIndex].en;
+                // アルファベットが含まれている場合のみ英語サマンサで読み上げ
+                if (enText && enText.match(/[A-Za-z]/)) {
+                    setTimeout(() => { speakEnglish(enText); }, 200);
+                }
             }
         }
 
