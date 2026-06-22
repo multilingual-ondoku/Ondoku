@@ -97,7 +97,7 @@
             font-weight: bold;
         }
         .result-wpm { color: #e67e22; font-size: 1.2em; }
-        audio { display: none; } /* Hide default unstable player */
+        audio { display: none; }
     </style>
 </head>
 <body>
@@ -121,7 +121,7 @@
         
         <div class="btn-group">
             <button class="btn-play" id="btn-listen">🔊 Listen to Model</button>
-            <button class="btn-stop-tts" id="btn-stop-tts">🛑 Stop Model</button>
+            <button class="btn-stop-tts" id="btn-stop-tts">⏸️ Pause / Resume</button>
             <button class="btn-youglish" id="btn-yg">📺 Search Selected Word on YouGlish</button>
         </div>
     </div>
@@ -171,7 +171,6 @@
         let audioChunks = [];
         let selectedTextViaTap = "";
 
-        // Keep track of highlighted text inside textarea for iOS
         textInput.addEventListener('mouseup', saveSelection);
         textInput.addEventListener('touchend', saveSelection);
         function saveSelection() {
@@ -182,6 +181,7 @@
             radio.addEventListener('change', (e) => {
                 textInput.value = sampleTexts[e.target.value];
                 selectedTextViaTap = "";
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
             });
         });
 
@@ -189,10 +189,15 @@
             return document.querySelector('input[name="language"]:checked').value;
         }
 
-        // 1. Text-to-Speech (TTS) Control
+        // 1. Upgraded TTS with Pause / Resume Function
         btnListen.addEventListener('click', () => {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // Reset
+                if (window.speechSynthesis.paused) {
+                    window.speechSynthesis.resume(); // Resume if paused
+                    return;
+                }
+                
+                window.speechSynthesis.cancel();
                 
                 const utterance = new SpeechSynthesisUtterance(textInput.value);
                 const currentLang = getSelectedLanguage();
@@ -213,19 +218,23 @@
             }
         });
 
-        // STOP TTS Button
+        // Toggle Pause and Resume
         btnStopTts.addEventListener('click', () => {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
+                if (window.speechSynthesis.speaking) {
+                    if (window.speechSynthesis.paused) {
+                        window.speechSynthesis.resume();
+                    } else {
+                        window.speechSynthesis.pause();
+                    }
+                }
             }
         });
 
-        // 2. YouGlish Integration Fixed for iOS
+        // 2. YouGlish Integration
         btnYg.addEventListener('click', () => {
             let selectedText = window.getSelection().toString().trim();
-            if (!selectedText) {
-                selectedText = selectedTextViaTap.trim();
-            }
+            if (!selectedText) selectedText = selectedTextViaTap.trim();
             const currentLang = getSelectedLanguage();
 
             if (!selectedText) {
@@ -234,30 +243,37 @@
             }
 
             const langParam = currentLang === 'en' ? 'english' : 'french';
-            const youglishUrl = `https://youglish.com/pronounce/${encodeURIComponent(selectedText)}/${langParam}`;
-            window.open(youglishUrl, '_blank');
+            window.open(`https://youglish.com/pronounce/${encodeURIComponent(selectedText)}/${langParam}`, '_blank');
         });
 
-        // 3. Start Recording
+        // 3. Start Recording (Fixed MIME type for iOS/Safari/Brave)
         btnStart.addEventListener('click', async () => {
             audioChunks = [];
             btnPlayVoice.disabled = true;
             
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
+                
+                // Force iOS native audio container format (audio/mp4 or audio/webm)
+                let options = { mimeType: 'audio/mp4' };
+                if (!MediaRecorder.isTypeSupported('audio/mp4')) {
+                    options = { mimeType: 'audio/webm' };
+                }
+
+                mediaRecorder = new MediaRecorder(stream, options);
                 
                 mediaRecorder.ondataavailable = event => {
-                    audioChunks.push(event.data);
+                    if (event.data.size > 0) audioChunks.push(event.data);
                 };
 
                 mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
                     audioPlayback.src = URL.createObjectURL(audioBlob);
-                    btnPlayVoice.disabled = false; // Enable custom play button
+                    audioPlayback.load(); // Force iOS to look at the new data
+                    btnPlayVoice.disabled = false;
                 };
 
-                mediaRecorder.start();
+                mediaRecorder.start(10); // Capture data every 10ms to prevent data loss
                 startTime = performance.now();
                 
                 timerInterval = setInterval(() => {
@@ -274,7 +290,7 @@
             }
         });
 
-        // 4. Stop Recording & Calculate WPM
+        // 4. Stop Recording
         btnStop.addEventListener('click', () => {
             clearInterval(timerInterval);
             const totalTimeSeconds = (performance.now() - startTime) / 1000;
@@ -305,18 +321,24 @@
             textInput.disabled = false;
         });
 
-        // 5. Unmute & Play Recorded Voice Forced Button for iOS
+        // 5. Play Voice Button
         btnPlayVoice.addEventListener('click', () => {
             if (audioPlayback.src) {
                 audioPlayback.muted = false;
                 audioPlayback.volume = 1.0;
-                audioPlayback.play().catch(err => console.log("Playback error:", err));
+                audioPlayback.play().catch(err => alert("Playback failed, try recording again."));
             }
         });
 
-        // Pre-load system voices on page load
+        // iOS Voice Booster Trick
+        function loadVoicesForced() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.getVoices();
+            }
+        }
+        loadVoicesForced();
         if ('speechSynthesis' in window) {
-            window.speechSynthesis.getVoices();
+            window.speechSynthesis.onvoiceschanged = loadVoicesForced;
         }
     </script>
 </body>
