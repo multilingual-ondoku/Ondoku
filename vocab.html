@@ -283,11 +283,15 @@
             }
         }
 
+        /* 🌟 フランス語発音時のカッコ内の英語を自動カットする機能付き */
         function speakFrench(text) {
             if (!('speechSynthesis' in window)) return;
             window.speechSynthesis.cancel(); 
             let cleanText = text.trim();
             if (!cleanText) return;
+
+            // 文字列から「(英語)」の部分を完全に取り除く（例: "être (to be)" -> "être"）
+            cleanText = cleanText.replace(/\s*\(.*?\)\s*/g, '');
 
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'fr-FR';
@@ -353,7 +357,7 @@
 
         function toggleAccordion(id) {
             const el = document.getElementById(id);
-            el.classList.toggle('open');
+            if (el) el.classList.toggle('open');
         }
 
         function deleteItem(type, index) {
@@ -391,7 +395,7 @@
             flashcardQueue = [];
         }
 
-        /* 🌟 チャンクと動詞を賢く振り分けるパースエンジン */
+        /* 🌟 例文のはみ出しを完全に防ぐ、改善版パースエンジン */
         function processWithTags() {
             const rawText = document.getElementById('raw-data').value;
             if (!rawText.trim()) return;
@@ -401,7 +405,7 @@
             let chunkAdded = 0;
             let verbAdded = 0;
             let currentItem = null;
-            let currentType = null; // 'chunk' or 'verb'
+            let currentType = null; 
 
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i];
@@ -426,12 +430,15 @@
 
                 if (!currentItem) continue;
 
-                // 例文検出
+                // 例文検出 (タグがついていれば絶対にメインに混ざらないようにブロック)
                 if (line.toUpperCase().startsWith('[EX]')) {
                     let exFr = line.replace(/^\[EX\]\s*/i, '');
                     let exIpa = (lines[i+1] && lines[i+1].startsWith('[')) ? lines[i+1] : '';
                     let exEnIdx = (lines[i+1] && lines[i+1].startsWith('[')) ? i + 2 : i + 1;
                     let exEn = lines[exEnIdx] || '';
+
+                    // カッコ悪い[EX]という残りカスを除去
+                    exFr = exFr.replace(/^\[EX\]\s*/i, '');
 
                     currentItem.examples.push({ fr: exFr, ipa: exIpa, en: exEn });
 
@@ -440,7 +447,7 @@
                     continue;
                 }
 
-                // メモ・解説の蓄積
+                // メモ・解説の蓄積（例文タグがついているものは除外）
                 if (line !== currentItem.mainFr && line !== currentItem.mainIpa && line !== currentItem.mainEn) {
                     if (!line.startsWith('[')) {
                         currentItem.explanation = currentItem.explanation ? (currentItem.explanation + '\n' + line) : line;
@@ -461,15 +468,24 @@
         function createNewItemStructure(mainText, lines, i) {
             let item = {
                 mainFr: mainText,
-                mainIpa: (lines[i+1] && lines[i+1].startsWith('[')) ? lines[i+1] : '',
+                mainIpa: '',
                 mainEn: '',
                 explanation: '',
                 examples: []
             };
-            let nextIdx = (lines[i+1] && lines[i+1].startsWith('[')) ? i + 2 : i + 1;
-            if (lines[nextIdx] && !lines[nextIdx].startsWith('[') && !lines[nextIdx].startsWith('※') && !lines[nextIdx].startsWith('•')) {
-                item.mainEn = lines[nextIdx];
+
+            // 次の行に発音記号（[ ]で始まる）があるかチェック
+            let currentOffset = i + 1;
+            if (lines[currentOffset] && lines[currentOffset].startsWith('[') && !lines[currentOffset].toUpperCase().startsWith('[EX]')) {
+                item.mainIpa = lines[currentOffset];
+                currentOffset++;
             }
+
+            // 次の行にメインの英語の翻訳があるかチェック（[EX]や注意書きでない場合のみ）
+            if (lines[currentOffset] && !lines[currentOffset].startsWith('[') && !lines[currentOffset].startsWith('※') && !lines[currentOffset].startsWith('•')) {
+                item.mainEn = lines[currentOffset];
+            }
+
             return item;
         }
 
@@ -537,7 +553,6 @@
             });
         }
 
-        /* 🌟 チャンクと動詞のすべての例文をシャッフルして一括テスト */
         function initFlashcards() {
             document.getElementById('card-view-wrapper').style.display = 'block';
             document.getElementById('card-empty-message').style.display = 'none';
@@ -545,12 +560,10 @@
             if (flashcardQueue.length === 0) {
                 let allExamples = [];
 
-                // チャンクの例文を収集
                 globalData.chunks.forEach(chunk => {
                     chunk.examples.forEach(ex => { if (ex.fr && ex.en) allExamples.push({ fr: ex.fr, en: ex.en }); });
                 });
 
-                // 動詞の例文を収集
                 globalData.verbs.forEach(verb => {
                     verb.examples.forEach(ex => { if (ex.fr && ex.en) allExamples.push({ fr: ex.fr, en: ex.en }); });
                 });
