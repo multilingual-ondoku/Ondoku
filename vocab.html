@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>French Chunk & Verb Trainer</title>
-    <script async src="https://youglish.com/public/widget/widget.js" charset="utf-8"></script>
+    <!-- YouGlish Official API Script -->
+    <script src="https://youglish.com/public/widget/widget.js" charset="utf-8"></script>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -107,14 +108,15 @@
             color: white;
             border: none;
             border-radius: 50%;
-            width: 36px;
-            height: 36px;
+            width: 44px;
+            height: 44px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            margin: 10px auto;
         }
         .btn-speak-mini:active { transform: scale(0.9); }
 
@@ -122,8 +124,8 @@
         .card-container {
             perspective: 1000px;
             width: 100%;
-            height: 230px;
-            margin: 20px 0;
+            height: 250px;
+            margin: 15px 0;
         }
         .flashcard {
             width: 100%;
@@ -160,7 +162,7 @@
             color: white;
             transform: rotateY(180deg);
         }
-        .card-fr { font-size: 22px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
+        .card-fr { font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
         .card-en { font-size: 20px; font-weight: 500; color: #ecf0f1; }
         
         .card-controls {
@@ -183,14 +185,14 @@
         .progress-text { text-align: center; font-weight: bold; margin-top: 10px; color: #7f8c8d; }
         .total-counter { text-align: center; font-size: 13px; color: #7f8c8d; margin-bottom: 10px; font-weight: bold; }
 
-        /* Invisible but functional container for inkless loading */
+        /* Embedded YouGlish Box */
         #yg-widget-container {
-            width: 260px;
-            height: 40px;
-            margin-top: 5px;
-            border-radius: 6px;
+            width: 100%;
+            max-width: 280px;
+            height: 50px;
+            margin-top: 10px;
+            border-radius: 8px;
             overflow: hidden;
-            border: 1px solid #ddd;
             background: #fafafa;
         }
     </style>
@@ -206,6 +208,7 @@
         <button class="tab-btn" onclick="switchTab('card-panel')">📇 Flashcards</button>
     </div>
 
+    <!-- 1. Input Panel -->
     <div id="input-panel" class="panel active">
         <div class="chunk-block">
             <h3>Paste New ChatGPT Output</h3>
@@ -216,12 +219,14 @@
         </div>
     </div>
 
+    <!-- 2. List Panel -->
     <div id="list-panel" class="panel">
         <div id="list-container">
             <p style="text-align: center; color: #7f8c8d; padding: 20px;">No data loaded. Go to "Add Data" tab first!</p>
         </div>
     </div>
 
+    <!-- 3. Card Panel -->
     <div id="card-panel" class="panel">
         <div id="card-view-wrapper" style="display: none;">
             <div class="card-container" onclick="toggleCardFlip()">
@@ -230,6 +235,7 @@
                         <div class="card-fr" id="card-front-text">Bonjour</div>
                         <button class="btn-speak-mini" id="btn-card-audio" onclick="event.stopPropagation(); speakCardCurrent()">🔊</button>
                         
+                        <!-- Fixed Container -->
                         <div id="yg-widget-container" onclick="event.stopPropagation();">
                             <div id="yg-widget"></div>
                         </div>
@@ -255,28 +261,25 @@
         let flashcardQueue = [];
         let currentCardIndex = 0;
         let ygWidget = null;
-        let ygReady = false;
 
-        window.addEventListener('DOMContentLoaded', () => {
+        // Force startup whenever the document finishes drawing
+        document.addEventListener('DOMContentLoaded', () => {
             loadSavedData();
             renderListView();
-            initYouGlish();
+            tryBuildYouGlish();
         });
 
-        // Initialize Embedded YouGlish Player
-        function initYouGlish() {
-            // Check if widget script loaded from YouGlish network
-            setTimeout(() => {
-                if (typeof YG !== 'undefined') {
-                    ygWidget = new YG("yg-widget", {
-                        width: 260,
-                        components: 4, // Text + playback controls only, no overhead clutter
-                        autoStart: 1,  // Fire immediately upon search call
-                        restricTo: "fr" // Lock engine directly to French accents
-                    });
-                    ygReady = true;
-                }
-            }, 1000);
+        // Fail-safe initialization function
+        function tryBuildYouGlish() {
+            if (typeof YG !== 'undefined') {
+                document.getElementById('yg-widget-container').innerHTML = '<div id="yg-widget"></div>';
+                ygWidget = new YG("yg-widget", {
+                    width: 280,
+                    components: 4, // Text + controls only
+                    autoStart: 1,
+                    restricTo: "fr" // French focus
+                });
+            }
         }
 
         function switchTab(panelId) {
@@ -291,21 +294,18 @@
             }
         }
 
-        // Native Native-Speaker Playback caller
         function speakFrench(text) {
             let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim();
-            // Remove text markers that confuse YouGlish queries
             cleanText = cleanText.replace(/[\[\]\(\)]/g, ''); 
             if (!cleanText) return;
 
-            if (ygReady && ygWidget) {
+            // Failsafe: if the widget variable was dropped or not ready, rebuild it on demand
+            if (typeof YG !== 'undefined' && !ygWidget) {
+                tryBuildYouGlish();
+            }
+
+            if (ygWidget && typeof ygWidget.search === 'function') {
                 ygWidget.search(cleanText, "fr");
-            } else {
-                // If YouGlish server has micro-delay, look it up again
-                if (typeof YG !== 'undefined' && !ygWidget) {
-                    ygWidget = new YG("yg-widget", { width: 260, components: 4, autoStart: 1, restricTo: "fr" });
-                    ygWidget.search(cleanText, "fr");
-                }
             }
         }
 
@@ -424,7 +424,7 @@
                         <div class="chunk-block">
                             <div class="chunk-header">
                                 <span>${chunk.fr}</span>
-                                <button class="btn-speak-mini" onclick="speakFrench('${chunk.fr.replace(/'/g, "\\'")}')">🔊</button>
+                                <button class="btn-speak-mini" style="margin:0;" onclick="speakFrench('${chunk.fr.replace(/'/g, "\\'")}')">🔊</button>
                             </div>
                             <div class="ipa-text">${chunk.ipa} ${chunk.katakana}</div>
                             <div class="meaning-text">${chunk.jp ? chunk.jp + ' / ' : ''}${chunk.en}</div>
@@ -445,7 +445,7 @@
                                     <div class="fr-side">${p.fr}</div>
                                     <div class="en-side">${p.en}</div>
                                 </div>
-                                <button class="btn-speak-mini" onclick="speakFrench('${p.fr.replace(/'/g, "\\'")}')">🔊</button>
+                                <button class="btn-speak-mini" style="margin:0;" onclick="speakFrench('${p.fr.replace(/'/g, "\\'")}')">🔊</button>
                             </div>
                         `;
                     });
@@ -504,8 +504,8 @@
             
             document.getElementById('flashcard').classList.remove('flipped');
             
-            // Auto-trigger native engine on card switch without changing view
-            setTimeout(() => { speakFrench(card.fr); }, 300);
+            // Auto search on card change
+            setTimeout(() => { speakFrench(card.fr); }, 400);
         }
 
         function toggleCardFlip() {
