@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>French Chunk Trainer</title>
+    <title>French Learning Trainer</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -17,20 +17,23 @@
         
         .tabs {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
         }
         .tab-btn {
             flex: 1;
-            padding: 12px;
+            min-width: 80px;
+            padding: 12px 8px;
             font-weight: bold;
             border: none;
             background-color: #dcdde1;
             color: #2f3640;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             transition: all 0.2s;
+            text-align: center;
         }
         .tab-btn.active {
             background-color: #34495e;
@@ -201,35 +204,35 @@
 </head>
 <body>
 
-    <h1>📇 French Chunk Trainer</h1>
+    <h1>📇 French Study Hub</h1>
     
-    <div class="total-counter" id="total-database-counter">Loaded: 0 Chunks inside storage</div>
+    <div class="total-counter" id="total-database-counter">Loaded: 0 Chunks | 0 Verbs</div>
     
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('input-panel')">📥 Add Data</button>
-        <button class="tab-btn" onclick="switchTab('list-panel')">📋 Daily List</button>
-        <button class="tab-btn" onclick="switchTab('card-panel')">📇 Flashcards (Examples)</button>
+        <button class="tab-btn" onclick="switchTab('list-panel')">📋 Daily Chunks</button>
+        <button class="tab-btn" onclick="switchTab('verb-panel')">🔤 Daily Verbs</button>
+        <button class="tab-btn" onclick="switchTab('card-panel')">📇 Flashcards (All)</button>
     </div>
 
-    <!-- 1. Input Panel -->
     <div id="input-panel" class="panel active">
         <div class="chunk-block">
-            <h3>Paste ChatGPT [CHUNK] Formatted Output</h3>
-            <p style="font-size: 13px; color: #7f8c8d; margin-top: 0;">Paste multiple chunks sets using [CHUNK] and [EX] tags!</p>
+            <h3>Paste ChatGPT Formatted Output</h3>
+            <p style="font-size: 13px; color: #7f8c8d; margin-top: 0;">Supports [CHUNK] or [VERB] tags with [EX] sentences!</p>
             <textarea id="raw-data" placeholder="Paste tagged text here..."></textarea>
             <button class="btn-action" onclick="processWithTags()">⚡ Add to My Study Set</button>
             <button class="btn-danger" onclick="clearAllData()">🗑️ Clear All Saved Data</button>
         </div>
     </div>
 
-    <!-- 2. List Panel -->
     <div id="list-panel" class="panel">
-        <div id="list-container">
-            <p style="text-align: center; color: #7f8c8d; padding: 20px;">No data loaded. Go to "Add Data" tab first!</p>
-        </div>
+        <div id="list-container"></div>
     </div>
 
-    <!-- 3. Card Panel -->
+    <div id="verb-panel" class="panel">
+        <div id="verb-container"></div>
+    </div>
+
     <div id="card-panel" class="panel">
         <div id="card-view-wrapper" style="display: none;">
             <div class="card-container" onclick="toggleCardFlip()">
@@ -255,13 +258,14 @@
     </div>
 
     <script>
-        let globalData = { chunks: [] }; 
+        let globalData = { chunks: [], verbs: [] }; 
         let flashcardQueue = [];
         let currentCardIndex = 0;
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedData();
             renderListView();
+            renderVerbView();
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.getVoices();
             }
@@ -312,34 +316,37 @@
         }
 
         function loadSavedData() {
-            const saved = localStorage.getItem('french_chunk_tagged_data_v1');
+            const saved = localStorage.getItem('french_hub_tagged_data_v2');
             if (saved) {
                 try {
                     globalData = JSON.parse(saved);
                     if (!globalData.chunks) globalData.chunks = [];
+                    if (!globalData.verbs) globalData.verbs = [];
                 } catch(e) {
-                    globalData = { chunks: [] };
+                    globalData = { chunks: [], verbs: [] };
                 }
             }
             updateCounters();
         }
 
         function saveData() {
-            localStorage.setItem('french_chunk_tagged_data_v1', JSON.stringify(globalData));
+            localStorage.setItem('french_hub_tagged_data_v2', JSON.stringify(globalData));
             updateCounters();
         }
 
         function updateCounters() {
-            document.getElementById('total-database-counter').textContent = `Loaded: ${globalData.chunks.length} full sets in system`;
+            document.getElementById('total-database-counter').textContent = 
+                `Loaded: ${globalData.chunks.length} Chunks | ${globalData.verbs.length} Verbs in storage`;
         }
 
         function clearAllData() {
             if(confirm("Are you sure you want to delete ALL data?")) {
-                localStorage.removeItem('french_chunk_tagged_data_v1');
-                globalData = { chunks: [] };
+                localStorage.removeItem('french_hub_tagged_data_v2');
+                globalData = { chunks: [], verbs: [] };
                 flashcardQueue = [];
                 updateCounters();
                 renderListView();
+                renderVerbView();
                 alert("Cleared!");
             }
         }
@@ -349,21 +356,23 @@
             el.classList.toggle('open');
         }
 
-        function deleteChunk(index) {
+        function deleteItem(type, index) {
             if(confirm("Delete this entire set including its examples?")) {
-                globalData.chunks.splice(index, 1);
+                if (type === 'chunk') globalData.chunks.splice(index, 1);
+                if (type === 'verb') globalData.verbs.splice(index, 1);
                 saveData();
                 renderListView();
+                renderVerbView();
                 flashcardQueue = [];
             }
         }
 
-        function editChunkSet(index) {
-            const set = globalData.chunks[index];
+        function editItemSet(type, index) {
+            const set = (type === 'chunk') ? globalData.chunks[index] : globalData.verbs[index];
             
-            const newFr = prompt("✏️ Edit MAIN French:", set.mainFr);
+            const newFr = prompt("✏️ Edit MAIN Text:", set.mainFr);
             if (newFr === null) return;
-            const newEn = prompt("✏️ Edit MAIN English:", set.mainEn);
+            const newEn = prompt("✏️ Edit MAIN Translation:", set.mainEn);
             if (newEn === null) return;
             
             set.mainFr = newFr.trim();
@@ -377,119 +386,127 @@
             });
 
             saveData();
-            renderListView();
+            if (type === 'chunk') renderListView();
+            if (type === 'verb') renderVerbView();
             flashcardQueue = [];
         }
 
-        /* 🌟 タグベースの超安定パースロジック */
+        /* 🌟 チャンクと動詞を賢く振り分けるパースエンジン */
         function processWithTags() {
             const rawText = document.getElementById('raw-data').value;
             if (!rawText.trim()) return;
 
             const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
-            let addedCount = 0;
-            let currentChunk = null;
+            let chunkAdded = 0;
+            let verbAdded = 0;
+            let currentItem = null;
+            let currentType = null; // 'chunk' or 'verb'
 
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i];
 
-                // [CHUNK] の始まりを検知
+                // CHUNK 検出
                 if (line.toUpperCase().startsWith('[CHUNK]')) {
-                    if (currentChunk) {
-                        // 次のチャンクに行く前にこれまでの分を保存
-                        pushUniqueChunk(currentChunk);
-                        addedCount++;
-                    }
-                    
-                    // 新規作成
-                    currentChunk = {
-                        mainFr: line.replace(/^\[CHUNK\]\s*/i, ''),
-                        mainIpa: (lines[i+1] && lines[i+1].startsWith('[')) ? lines[i+1] : '',
-                        mainEn: '',
-                        explanation: '',
-                        examples: []
-                    };
-                    
-                    // 英語訳の行を自動セット
-                    let nextIdx = (lines[i+1] && lines[i+1].startsWith('[')) ? i + 2 : i + 1;
-                    if (lines[nextIdx] && !lines[nextIdx].startsWith('[') && !lines[nextIdx].startsWith('※') && !lines[nextIdx].startsWith('•')) {
-                        currentChunk.mainEn = lines[nextIdx];
-                    }
+                    if (currentItem) saveCurrentItem(currentItem, currentType);
+                    currentType = 'chunk';
+                    chunkAdded++;
+                    currentItem = createNewItemStructure(line.replace(/^\[CHUNK\]\s*/i, ''), lines, i);
                     continue;
                 }
 
-                if (!currentChunk) continue;
+                // VERB 検出
+                if (line.toUpperCase().startsWith('[VERB]')) {
+                    if (currentItem) saveCurrentItem(currentItem, currentType);
+                    currentType = 'verb';
+                    verbAdded++;
+                    currentItem = createNewItemStructure(line.replace(/^\[VERB\]\s*/i, ''), lines, i);
+                    continue;
+                }
 
-                // [EX] (例文) の始まりを検知
+                if (!currentItem) continue;
+
+                // 例文検出
                 if (line.toUpperCase().startsWith('[EX]')) {
                     let exFr = line.replace(/^\[EX\]\s*/i, '');
                     let exIpa = (lines[i+1] && lines[i+1].startsWith('[')) ? lines[i+1] : '';
                     let exEnIdx = (lines[i+1] && lines[i+1].startsWith('[')) ? i + 2 : i + 1;
                     let exEn = lines[exEnIdx] || '';
 
-                    currentChunk.examples.push({
-                        fr: exFr,
-                        ipa: exIpa,
-                        en: exEn
-                    });
+                    currentItem.examples.push({ fr: exFr, ipa: exIpa, en: exEn });
 
-                    // 読み飛ばし
                     if (lines[i+1] && lines[i+1].startsWith('[')) i++;
                     i++; 
                     continue;
                 }
 
-                // 解説文（※ や •）やその他雑多なメモを解説欄に蓄積
-                if (line !== currentChunk.mainFr && line !== currentChunk.mainIpa && line !== currentChunk.mainEn) {
+                // メモ・解説の蓄積
+                if (line !== currentItem.mainFr && line !== currentItem.mainIpa && line !== currentItem.mainEn) {
                     if (!line.startsWith('[')) {
-                        if (currentChunk.explanation) {
-                            currentChunk.explanation += '\n' + line;
-                        } else {
-                            currentChunk.explanation = line;
-                        }
+                        currentItem.explanation = currentItem.explanation ? (currentItem.explanation + '\n' + line) : line;
                     }
                 }
             }
 
-            // 最後の塊を保存
-            if (currentChunk) {
-                pushUniqueChunk(currentChunk);
-                addedCount++;
-            }
+            if (currentItem) saveCurrentItem(currentItem, currentType);
 
             saveData();
             renderListView();
+            renderVerbView();
             document.getElementById('raw-data').value = '';
-            alert(`Processed successfully! Imported ${addedCount} sets.`);
-            switchTab('list-panel');
+            alert(`Successfully loaded:\n+ ${chunkAdded} Chunks\n+ ${verbAdded} Verbs`);
+            switchTab(chunkAdded > 0 ? 'list-panel' : 'verb-panel');
         }
 
-        function pushUniqueChunk(chunkObj) {
-            if (!globalData.chunks.some(c => c.mainFr === chunkObj.mainFr)) {
-                globalData.chunks.push(chunkObj);
+        function createNewItemStructure(mainText, lines, i) {
+            let item = {
+                mainFr: mainText,
+                mainIpa: (lines[i+1] && lines[i+1].startsWith('[')) ? lines[i+1] : '',
+                mainEn: '',
+                explanation: '',
+                examples: []
+            };
+            let nextIdx = (lines[i+1] && lines[i+1].startsWith('[')) ? i + 2 : i + 1;
+            if (lines[nextIdx] && !lines[nextIdx].startsWith('[') && !lines[nextIdx].startsWith('※') && !lines[nextIdx].startsWith('•')) {
+                item.mainEn = lines[nextIdx];
+            }
+            return item;
+        }
+
+        function saveCurrentItem(item, type) {
+            if (type === 'chunk') {
+                if (!globalData.chunks.some(c => c.mainFr === item.mainFr)) globalData.chunks.push(item);
+            } else if (type === 'verb') {
+                if (!globalData.verbs.some(v => v.mainFr === item.mainFr)) globalData.verbs.push(item);
             }
         }
 
         function renderListView() {
-            const container = document.getElementById('list-container');
+            renderGenericView('list-container', globalData.chunks, 'chunk');
+        }
+
+        function renderVerbView() {
+            renderGenericView('verb-container', globalData.verbs, 'verb');
+        }
+
+        function renderGenericView(containerId, dataset, type) {
+            const container = document.getElementById(containerId);
             container.innerHTML = '';
 
-            if (globalData.chunks.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No sets found. Add ChatGPT output above!</p>';
+            if (dataset.length === 0) {
+                container.innerHTML = `<p style="text-align: center; color: #7f8c8d; padding: 20px;">No ${type}s found. Paste data inside the "Add Data" tab!</p>`;
                 return;
             }
 
-            globalData.chunks.forEach((chunk, index) => {
-                let safeMainFr = chunk.mainFr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                
+            dataset.forEach((item, index) => {
+                let safeMainFr = item.mainFr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 let examplesHtml = '';
-                chunk.examples.forEach((ex) => {
+                item.examples.forEach((ex) => {
                     let safeExFr = ex.fr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     examplesHtml += `
                         <div class="sentence-item">
                             <div class="fr-side-clickable" onclick="speakFrench('${safeExFr}')">${ex.fr}</div>
-                            <div class="ipa-text" style="font-size:12px;">${ex.ipa}</div>
+                            ${ex.ipa ? `<div class="ipa-text" style="font-size:12px;">${ex.ipa}</div>` : ''}
                             <div class="en-side">${ex.en}</div>
                         </div>
                     `;
@@ -497,48 +514,54 @@
 
                 container.innerHTML += `
                     <div class="chunk-block">
-                        <div class="clickable-fr" onclick="speakFrench('${safeMainFr}')">${chunk.mainFr}</div>
-                        <div class="ipa-text">${chunk.mainIpa}</div>
-                        <div class="meaning-text">${chunk.mainEn}</div>
-                        ${chunk.explanation ? `<div class="note-text">${chunk.explanation}</div>` : ''}
+                        <div class="clickable-fr" onclick="speakFrench('${safeMainFr}')">${item.mainFr}</div>
+                        ${item.mainIpa ? `<div class="ipa-text">${item.mainIpa}</div>` : ''}
+                        ${item.mainEn ? `<div class="meaning-text">${item.mainEn}</div>` : ''}
+                        ${item.explanation ? `<div class="note-text">${item.explanation}</div>` : ''}
                         
-                        <button class="accordion-toggle" onclick="toggleAccordion('examples-${index}')">
-                            <span>📄 例文 (${chunk.examples.length}個) を表示 / 非表示</span>
+                        <button class="accordion-toggle" onclick="toggleAccordion('${type}-examples-${index}')">
+                            <span>📄 例文・活用 (${item.examples.length}個) を表示 / 非表示</span>
                             <span>▼</span>
                         </button>
                         
-                        <div class="accordion-content" id="examples-${index}">
-                            ${examplesHtml || '<p style="color:#95a5a6; font-size:12px;">No examples found.</p>'}
+                        <div class="accordion-content" id="${type}-examples-${index}">
+                            ${examplesHtml || '<p style="color:#95a5a6; font-size:12px;">No examples available.</p>'}
                         </div>
 
                         <div class="item-footer-controls">
-                            <button class="btn-emoji-only" onclick="editChunkSet(${index})">✏️</button>
-                            <button class="btn-emoji-only" onclick="deleteChunk(${index})">🗑️</button>
+                            <button class="btn-emoji-only" onclick="editItemSet('${type}', ${index})">✏️</button>
+                            <button class="btn-emoji-only" onclick="deleteItem('${type}', ${index})">🗑️</button>
                         </div>
                     </div>
                 `;
             });
         }
 
+        /* 🌟 チャンクと動詞のすべての例文をシャッフルして一括テスト */
         function initFlashcards() {
-            if (globalData.chunks.length === 0) {
-                document.getElementById('card-view-wrapper').style.display = 'none';
-                document.getElementById('card-empty-message').style.display = 'block';
-                return;
-            }
-
             document.getElementById('card-view-wrapper').style.display = 'block';
             document.getElementById('card-empty-message').style.display = 'none';
 
             if (flashcardQueue.length === 0) {
+                let allExamples = [];
+
+                // チャンクの例文を収集
                 globalData.chunks.forEach(chunk => {
-                    chunk.examples.forEach(ex => {
-                        if (ex.fr && ex.en) {
-                            flashcardQueue.push({ fr: ex.fr, en: ex.en });
-                        }
-                    });
+                    chunk.examples.forEach(ex => { if (ex.fr && ex.en) allExamples.push({ fr: ex.fr, en: ex.en }); });
                 });
-                
+
+                // 動詞の例文を収集
+                globalData.verbs.forEach(verb => {
+                    verb.examples.forEach(ex => { if (ex.fr && ex.en) allExamples.push({ fr: ex.fr, en: ex.en }); });
+                });
+
+                if (allExamples.length === 0) {
+                    document.getElementById('card-view-wrapper').style.display = 'none';
+                    document.getElementById('card-empty-message').style.display = 'block';
+                    return;
+                }
+
+                flashcardQueue = allExamples;
                 flashcardQueue.sort(() => Math.random() - 0.5);
                 currentCardIndex = 0;
             }
@@ -547,8 +570,8 @@
 
         function showCard() {
             if (flashcardQueue.length === 0 || currentCardIndex >= flashcardQueue.length) {
-                document.getElementById('card-front-text').textContent = "🎉 Examples Completed!";
-                document.getElementById('card-back-text').textContent = "Great job reading all examples!";
+                document.getElementById('card-front-text').textContent = "🎉 Training Completed!";
+                document.getElementById('card-back-text').textContent = "Excellent! You finished all shuffled cards!";
                 document.getElementById('card-progress').textContent = "Completed!";
                 return;
             }
