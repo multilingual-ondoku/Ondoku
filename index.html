@@ -82,6 +82,26 @@
         .btn-stop { background-color: #e74c3c; color: white; }
         .btn-play-voice { background-color: #9b59b6; color: white; }
         button:disabled { background-color: #bdc3c7; color: #7f8c8d; cursor: not-allowed; transform: none; }
+        
+        /* 🔍 デバッグ用の音声リストスタイル */
+        .debug-box {
+            background-color: #eef2f7;
+            border: 1px solid #d0d7de;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        .voice-tag {
+            display: inline-block;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 3px;
+            font-weight: bold;
+        }
+        
         .stats {
             display: flex;
             justify-content: space-between;
@@ -99,6 +119,20 @@
 
     <h1>🗣️ Reading Trainer Pro</h1>
     <p class="subtitle">English & French Practice with YouGlish Integration</p>
+
+    <!-- 🔍 復活させたボイスあぶり出しボックス -->
+    <div class="card" style="border: 2px solid #3498db;">
+        <h3>🔍 Detected System Voices</h3>
+        <div class="debug-box">
+            <strong>🇺🇸 English Voices Available:</strong>
+            <div id="en-voice-list" style="margin-top: 5px;">Scanning...</div>
+        </div>
+        <div class="debug-box">
+            <strong>🇫🇷 French Voices Available:</strong>
+            <div id="fr-voice-list" style="margin-top: 5px;">Scanning...</div>
+        </div>
+        <div style="font-size: 11px; color: #7f8c8d; text-align: center;">※ボイスが出ない場合は一度画面をリロードしてください</div>
+    </div>
 
     <div class="card">
         <h3>1. Select Language & Enter Text</h3>
@@ -180,7 +214,7 @@
             return document.querySelector('input[name="language"]:checked').value;
         }
 
-        // 🌟 1. TTS Control with Zoe & Amélie Perfect Target Lock
+        // 🌟 1. TTS Control 
         btnListen.addEventListener('click', () => {
             if ('speechSynthesis' in window) {
                 if (window.speechSynthesis.paused) {
@@ -200,7 +234,6 @@
                 const allVoices = window.speechSynthesis.getVoices();
                 
                 if (currentLang === 'fr') {
-                    // 【アメリちゃん一本釣り】
                     const amelie = allVoices.find(v => {
                         const n = v.name.toLowerCase();
                         return n.includes('amélie') || n.includes('amelie');
@@ -212,13 +245,11 @@
                         if (cleanFr.length > 0) utterance.voice = cleanFr[0];
                     }
                 } else if (currentLang === 'en') {
-                    // 🌟【Zoeちゃん完全一本釣り固定】
+                    // Zoeちゃんを探す
                     const zoe = allVoices.find(v => v.name.toLowerCase().includes('zoe'));
-                    
                     if (zoe) {
                         utterance.voice = zoe;
                     } else {
-                        // 万が一Zoeちゃんがいなかったときの高品質英語ボイスバックアップ
                         const premiumEn = allVoices.find(v => v.lang.toLowerCase().startsWith('en') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced')));
                         if (premiumEn) utterance.voice = premiumEn;
                     }
@@ -338,11 +369,33 @@
             }
         });
 
+        // 🔍 ボイスを画面に書き出すデバッグ用関数
         function loadVoicesForced() {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.getVoices();
+                const voices = window.speechSynthesis.getVoices();
+                
+                const enList = document.getElementById('en-voice-list');
+                const frList = document.getElementById('fr-voice-list');
+                
+                if (voices.length > 0) {
+                    let enHtml = '';
+                    let frHtml = '';
+                    
+                    voices.forEach(v => {
+                        const lang = v.lang.toLowerCase();
+                        if (lang.startsWith('en')) {
+                            enHtml += `<span class="voice-tag">${v.name}</span>`;
+                        } else if (lang.startsWith('fr')) {
+                            frHtml += `<span class="voice-tag">${v.name}</span>`;
+                        }
+                    });
+                    
+                    enList.innerHTML = enHtml || 'No English voices detected.';
+                    frList.innerHTML = frHtml || 'No French voices detected.';
+                }
             }
         }
+        
         loadVoicesForced();
         if ('speechSynthesis' in window) {
             window.speechSynthesis.onvoiceschanged = loadVoicesForced;
