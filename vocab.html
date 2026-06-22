@@ -194,7 +194,6 @@
         <button class="tab-btn" onclick="switchTab('card-panel')">📇 Flashcards</button>
     </div>
 
-    <!-- 1. Input Panel -->
     <div id="input-panel" class="panel active">
         <div class="chunk-block">
             <h3>Paste New ChatGPT Output</h3>
@@ -206,14 +205,12 @@
         </div>
     </div>
 
-    <!-- 2. List Panel -->
     <div id="list-panel" class="panel">
         <div id="list-container">
             <p style="text-align: center; color: #7f8c8d; padding: 20px;">No data loaded. Go to "Add Data" tab first!</p>
         </div>
     </div>
 
-    <!-- 3. Card Panel -->
     <div id="card-panel" class="panel">
         <div id="card-view-wrapper" style="display: none;">
             <div class="card-container" onclick="toggleCardFlip()">
@@ -242,7 +239,7 @@
         let globalData = { chunks: [], verbs: [] };
         let flashcardQueue = [];
         let currentCardIndex = 0;
-        let currentAudio = null; // Track network audio stream
+        let currentAudio = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedData();
@@ -261,10 +258,9 @@
             }
         }
 
-        // --- GOOGLE TTS NETWORKING ENGINE (BYPASSES ALL iOS ROBOT BUGS) ---
+        // --- SAFE GOOGLE TTS AUDIO ENGINE (TOUCH-TRIGGER ONLY) ---
         function speakFrench(text) {
             try {
-                // Stop any playing audio immediately
                 if (currentAudio) {
                     currentAudio.pause();
                     currentAudio.currentTime = 0;
@@ -273,16 +269,16 @@
                 let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim(); 
                 if (!cleanText) return;
 
-                // Call Google's pristine Translation voice engine directly
                 const encText = encodeURIComponent(cleanText);
+                // Secure web fallback
                 const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=fr&client=tw-ob&q=${encText}`;
                 
                 currentAudio = new Audio(googleTtsUrl);
                 currentAudio.play().catch(e => {
-                    console.log("Audio playback user-gesture requirement trigger:", e);
+                    console.log("iOS security intercepted automatic stream:", e);
                 });
             } catch (err) {
-                console.error("Network audio engine issue:", err);
+                console.error(err);
             }
         }
 
@@ -478,8 +474,7 @@
             
             document.getElementById('flashcard').classList.remove('flipped');
             
-            // Auto play with natural delay for networking
-            setTimeout(() => { speakFrench(card.fr); }, 400);
+            // REMOVED AUTOMATIC SPEAK TO BYPASS iOS SECURITY BLOCKS
         }
 
         function toggleCardFlip() {
