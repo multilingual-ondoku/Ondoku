@@ -100,7 +100,6 @@
     <h1>🗣️ Reading Trainer Pro</h1>
     <p class="subtitle">English & French Practice with YouGlish Integration</p>
 
-    <!-- 1. Language Selection and Text Input -->
     <div class="card">
         <h3>1. Select Language & Enter Text</h3>
         
@@ -112,7 +111,6 @@
             <label for="lang-fr" class="lang-label">🇫🇷 French (Français)</label>
         </div>
 
-        <!-- Box is now completely empty by default -->
         <textarea id="text-input" placeholder="Type or paste your text here..."></textarea>
         
         <div class="btn-group">
@@ -122,7 +120,6 @@
         </div>
     </div>
 
-    <!-- 2. Reading & Recording Area -->
     <div class="card">
         <h3>2. Record & Measure Your Reading</h3>
         <p>Click "Start" to begin reading aloud, and click "Stop" when you are finished.</p>
@@ -174,7 +171,6 @@
                 selectedTextViaTap = "";
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel();
-                    // Forced reset on language switch to clear iOS cache
                     window.speechSynthesis.getVoices(); 
                 }
             });
@@ -184,7 +180,7 @@
             return document.querySelector('input[name="language"]:checked').value;
         }
 
-        // 1. TTS Control
+        // 1. TTS Control with Aggressive Voice Matching
         btnListen.addEventListener('click', () => {
             if ('speechSynthesis' in window) {
                 if (window.speechSynthesis.paused) {
@@ -193,7 +189,6 @@
                 }
                 
                 window.speechSynthesis.cancel();
-                
                 if (!textInput.value.trim()) return;
 
                 const utterance = new SpeechSynthesisUtterance(textInput.value);
@@ -202,24 +197,36 @@
                 utterance.lang = currentLang === 'en' ? 'en-US' : 'fr-FR';
                 utterance.rate = 1.0;
 
-                // Force iOS to reload voices immediately on click
                 const allVoices = window.speechSynthesis.getVoices();
+                
                 if (currentLang === 'fr') {
-                    const audrey = allVoices.find(v => v.name.includes('Audrey') && v.lang.startsWith('fr'));
+                    // Search for Audrey case-insensitive
+                    const audrey = allVoices.find(v => v.lang.toLowerCase().startsWith('fr') && v.name.toLowerCase().includes('audrey'));
                     if (audrey) {
                         utterance.voice = audrey;
                     } else {
-                        // Fallback to any native French voice if Audrey is locked
-                        const anyFrench = allVoices.find(v => v.lang.startsWith('fr'));
-                        if (anyFrench) utterance.voice = anyFrench;
+                        // Advanced fallback: look for premium/enhanced French voices first
+                        const premiumFr = allVoices.find(v => v.lang.toLowerCase().startsWith('fr') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced') || v.name.toLowerCase().includes('siri')));
+                        if (premiumFr) {
+                            utterance.voice = premiumFr;
+                        } else {
+                            const anyFr = allVoices.find(v => v.lang.toLowerCase().startsWith('fr'));
+                            if (anyFr) utterance.voice = anyFr;
+                        }
                     }
                 } else if (currentLang === 'en') {
-                    const zoe = allVoices.find(v => v.name.includes('Zoe') && v.lang.startsWith('en'));
+                    // Search for Zoe case-insensitive
+                    const zoe = allVoices.find(v => v.lang.toLowerCase().startsWith('en') && v.name.toLowerCase().includes('zoe'));
                     if (zoe) {
                         utterance.voice = zoe;
                     } else {
-                        const anyEnglish = allVoices.find(v => v.lang.startsWith('en'));
-                        if (anyEnglish) utterance.voice = anyEnglish;
+                        const premiumEn = allVoices.find(v => v.lang.toLowerCase().startsWith('en') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced') || v.name.toLowerCase().includes('siri')));
+                        if (premiumEn) {
+                            utterance.voice = premiumEn;
+                        } else {
+                            const anyEn = allVoices.find(v => v.lang.toLowerCase().startsWith('en'));
+                            if (anyEn) utterance.voice = anyEn;
+                        }
                     }
                 }
 
