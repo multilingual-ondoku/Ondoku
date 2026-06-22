@@ -12,9 +12,123 @@
             padding: 20px;
             max-width: 650px;
             margin: 0 auto;
+            position: relative;
+            overflow-x: hidden;
         }
-        h1 { text-align: center; color: #2c3e50; margin-bottom: 5px; }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 5px; margin-top: 50px; }
         .subtitle { text-align: center; color: #7f8c8d; margin-top: 0; margin-bottom: 25px; }
+        
+        /* ☰ Top Menu Bar */
+        .top-bar {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 100;
+        }
+        .btn-menu {
+            background-color: #34495e;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            font-size: 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            min-width: auto;
+        }
+
+        /* 📁 Sidebar Layout */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -280px; /* 最初は隠れている */
+            width: 280px;
+            height: 100%;
+            background-color: #2c3e50;
+            color: white;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.2);
+            transition: left 0.3s ease;
+            z-index: 999;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar.open {
+            left: 0; /* 画面内に現れる */
+        }
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #4b6584;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .sidebar-header h3 { margin: 0; font-size: 18px; }
+        .btn-close {
+            background: none;
+            border: none;
+            color: #a5b1c2;
+            font-size: 20px;
+            cursor: pointer;
+            min-width: auto;
+            padding: 0;
+        }
+        
+        /* 📜 History List Item Styling */
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .history-item {
+            background: #34495e;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .history-item:hover { background: #4b6584; }
+        .history-text {
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 10px;
+            flex: 1;
+        }
+        .btn-delete-history {
+            background: none;
+            border: none;
+            color: #fc5c65;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+            min-width: auto;
+        }
+        .btn-delete-history:hover { color: #ff7675; }
+
+        /* Sidebar Overlay overlay */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            display: none;
+            z-index: 998;
+        }
+        .sidebar-overlay.show { display: block; }
+
+        /* Main App Cards */
         .card {
             background: white;
             padding: 20px;
@@ -81,7 +195,9 @@
         .btn-start { background-color: #2ecc71; color: white; }
         .btn-stop { background-color: #e74c3c; color: white; }
         .btn-play-voice { background-color: #9b59b6; color: white; }
+        .btn-save-hist { background-color: #e67e22; color: white; width: 100%; margin-top: 5px; }
         button:disabled { background-color: #bdc3c7; color: #7f8c8d; cursor: not-allowed; transform: none; }
+        
         .stats {
             display: flex;
             justify-content: space-between;
@@ -96,6 +212,20 @@
     </style>
 </head>
 <body>
+
+    <div class="top-bar">
+        <button class="btn-menu" onclick="toggleSidebar(true)">☰ Saved List</button>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>📁 Saved List</h3>
+            <button class="btn-close" onclick="toggleSidebar(false)">✕</button>
+        </div>
+        <ul class="history-list" id="history-container">
+            </ul>
+    </div>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
 
     <h1>🗣️ Reading Trainer Pro</h1>
     <p class="subtitle">English & French Practice with YouGlish Integration</p>
@@ -113,10 +243,12 @@
 
         <textarea id="text-input" placeholder="Type or paste your text here..."></textarea>
         
+        <button class="btn-save-hist" id="btn-save-hist">💾 Save Current Text to List</button>
+        
         <div class="btn-group">
             <button class="btn-play" id="btn-listen">🔊 Listen to Model</button>
             <button class="btn-stop-tts" id="btn-stop-tts">⏸️ Pause / Resume</button>
-            <button class="btn-yg" id="btn-yg">📺 Search Selected Word on YouGlish</button>
+            <button class="btn-youglish" id="btn-yg">📺 Search Selected Word on YouGlish</button>
         </div>
     </div>
 
@@ -149,26 +281,44 @@
         const btnStart = document.getElementById('btn-start');
         const btnStop = document.getElementById('btn-stop');
         const btnPlayVoice = document.getElementById('btn-play-voice');
+        const btnSaveHist = document.getElementById('btn-save-hist');
         const wordCountSpan = document.getElementById('word-count');
         const timerSpan = document.getElementById('timer');
         const wpmResultSpan = document.getElementById('wpm-result');
         const audioPlayback = document.getElementById('audio-playback');
+        const historyContainer = document.getElementById('history-container');
 
         let startTime;
         let timerInterval;
         let mediaRecorder;
         let audioChunks = [];
         let selectedTextViaTap = "";
+        
+        // 💾 履歴データアレイ
+        let savedHistoryArr = [];
 
-        // 🌟【自動セーブ・ロード処理】
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedTrainerData();
+            renderHistoryMenu();
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.getVoices();
             }
         });
 
-        // 入力するたびにテキストを自動セーブ
+        // 📁 サイドバーの開閉
+        function toggleSidebar(open) {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (open) {
+                sidebar.classList.add('open');
+                overlay.classList.add('show');
+            } else {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('show');
+            }
+        }
+
+        // テキスト入力時のリアルタイム最新セーブ
         textInput.addEventListener('input', saveTrainerData);
 
         function saveTrainerData() {
@@ -179,13 +329,86 @@
         function loadSavedTrainerData() {
             const savedText = localStorage.getItem('reading_trainer_text');
             const savedLang = localStorage.getItem('reading_trainer_lang');
+            const historySaved = localStorage.getItem('reading_trainer_history_list');
 
-            if (savedText !== null) {
-                textInput.value = savedText;
-            }
+            if (savedText !== null) textInput.value = savedText;
             if (savedLang !== null) {
                 const targetRadio = document.querySelector(`input[name="language"][value="${savedLang}"]`);
                 if (targetRadio) targetRadio.checked = true;
+            }
+            if (historySaved !== null) {
+                try {
+                    savedHistoryArr = JSON.parse(historySaved);
+                } catch(e) {
+                    savedHistoryArr = [];
+                }
+            }
+        }
+
+        // 💾 履歴リストに現在の内容を追加
+        btnSaveHist.addEventListener('click', () => {
+            const currentText = textInput.value.trim();
+            if (!currentText) {
+                alert("Please enter text first before saving!");
+                return;
+            }
+            const currentLang = getSelectedLanguage();
+
+            // 新規アイテム追加
+            savedHistoryArr.push({
+                text: currentText,
+                lang: currentLang,
+                timestamp: Date.now()
+            });
+
+            localStorage.setItem('reading_trainer_history_list', JSON.stringify(savedHistoryArr));
+            renderHistoryMenu();
+            alert("Saved to list successfully!");
+        });
+
+        // 📜 履歴リストを描画
+        function renderHistoryMenu() {
+            historyContainer.innerHTML = '';
+            if (savedHistoryArr.length === 0) {
+                historyContainer.innerHTML = '<p style="font-size:12px; color:#a5b1c2; text-align:center;">No saved list items.</p>';
+                return;
+            }
+
+            savedHistoryArr.forEach((item, index) => {
+                const flag = item.lang === 'en' ? '🇺🇸' : '🇫🇷';
+                const previewText = item.text.substring(0, 24) + (item.text.length > 24 ? '...' : '');
+
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.onclick = () => selectHistoryItem(index);
+
+                li.innerHTML = `
+                    <div class="history-text">${flag} ${previewText}</div>
+                    <button class="btn-delete-history" onclick="event.stopPropagation(); deleteHistoryItem(${index});">🗑️</button>
+                `;
+                historyContainer.appendChild(li);
+            });
+        }
+
+        // 📁 履歴タップで復元（再入力）
+        function selectHistoryItem(index) {
+            const item = savedHistoryArr[index];
+            if (item) {
+                textInput.value = item.text;
+                const targetRadio = document.querySelector(`input[name="language"][value="${item.lang}"]`);
+                if (targetRadio) targetRadio.checked = true;
+                
+                saveTrainerData(); // メインスロットのセーブデータも更新
+                toggleSidebar(false); // サイドバーを閉じる
+            }
+        }
+
+        // 🗑️ 履歴を個別に削除
+        function deleteHistoryItem(index) {
+            if (confirm("Delete this saved item from your list?")) {
+                savedHistoryArr.splice(index, 1);
+                localStorage.setItem('reading_trainer_history_list', JSON.stringify(savedHistoryArr));
+                renderHistoryMenu();
             }
         }
 
@@ -198,7 +421,7 @@
         document.querySelectorAll('input[name="language"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 selectedTextViaTap = "";
-                saveTrainerData(); // 言語変更時も保存
+                saveTrainerData();
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel();
                     window.speechSynthesis.getVoices(); 
@@ -210,7 +433,7 @@
             return document.querySelector('input[name="language"]:checked').value;
         }
 
-        // 🌟 1. TTS Control (Samantha & Amélie Perfect Lock)
+        // 1. TTS Control (Samantha & Amélie Perfect Lock)
         btnListen.addEventListener('click', () => {
             if ('speechSynthesis' in window) {
                 if (window.speechSynthesis.paused) {
