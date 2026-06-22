@@ -214,10 +214,10 @@
     <!-- 1. Input Panel -->
     <div id="input-panel" class="panel active">
         <div class="chunk-block">
-            <h3>Paste ChatGPT Full Set Output</h3>
-            <p style="font-size: 13px; color: #7f8c8d; margin-top: 0;">You can paste multiple chunks sets all together!</p>
-            <textarea id="raw-data" placeholder="Paste the text from ChatGPT here..."></textarea>
-            <button class="btn-action" onclick="processStructuredData()">⚡ Add to My Study Set</button>
+            <h3>Paste ChatGPT [CHUNK] Formatted Output</h3>
+            <p style="font-size: 13px; color: #7f8c8d; margin-top: 0;">Paste multiple chunks sets using [CHUNK] and [EX] tags!</p>
+            <textarea id="raw-data" placeholder="Paste tagged text here..."></textarea>
+            <button class="btn-action" onclick="processWithTags()">⚡ Add to My Study Set</button>
             <button class="btn-danger" onclick="clearAllData()">🗑️ Clear All Saved Data</button>
         </div>
     </div>
@@ -312,7 +312,7 @@
         }
 
         function loadSavedData() {
-            const saved = localStorage.getItem('french_chunk_structured_data_v3');
+            const saved = localStorage.getItem('french_chunk_tagged_data_v1');
             if (saved) {
                 try {
                     globalData = JSON.parse(saved);
@@ -325,7 +325,7 @@
         }
 
         function saveData() {
-            localStorage.setItem('french_chunk_structured_data_v3', JSON.stringify(globalData));
+            localStorage.setItem('french_chunk_tagged_data_v1', JSON.stringify(globalData));
             updateCounters();
         }
 
@@ -335,7 +335,7 @@
 
         function clearAllData() {
             if(confirm("Are you sure you want to delete ALL data?")) {
-                localStorage.removeItem('french_chunk_structured_data_v3');
+                localStorage.removeItem('french_chunk_tagged_data_v1');
                 globalData = { chunks: [] };
                 flashcardQueue = [];
                 updateCounters();
@@ -381,109 +381,94 @@
             flashcardQueue = [];
         }
 
-        /* 🌟 【決定版】説明文の位置を基準にした、絶対にブレないパースエンジン */
-        function processStructuredData() {
+        /* 🌟 タグベースの超安定パースロジック */
+        function processWithTags() {
             const rawText = document.getElementById('raw-data').value;
             if (!rawText.trim()) return;
 
-            // まず、行ごとにバラして無駄な空行を消す
             const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
-            // 複数のチャンクセミナーの塊を、最初の「フランス語（説明マークのないプレーンな行）」を基準に完全に仕分けする
-            let chunkBlocks = [];
-            let currentBlock = null;
+            let addedCount = 0;
+            let currentChunk = null;
 
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i];
 
-                // [発音記号]でも、説明文(※•)でもなく、次の行が[発音記号]で始まっているなら、そこが1つの「メインチャンク」のド頭
-                if (!line.startsWith('[') && !line.startsWith('※') && !line.startsWith('•') && lines[i+1] && lines[i+1].startsWith('[')) {
+                // [CHUNK] の始まりを検知
+                if (line.toUpperCase().startsWith('[CHUNK]')) {
+                    if (currentChunk) {
+                        // 次のチャンクに行く前にこれまでの分を保存
+                        pushUniqueChunk(currentChunk);
+                        addedCount++;
+                    }
                     
-                    // ただし、すでに「説明文」を通過した後の新しいフランス語であれば、それは別の大きなチャンクセットだと判定して新ブロックを作る
-                    if (currentBlock && currentBlock.some(l => l.startsWith('※') || l.startsWith('•'))) {
-                        chunkBlocks.push(currentBlock);
-                        currentBlock = null;
+                    // 新規作成
+                    currentChunk = {
+                        mainFr: line.replace(/^\[CHUNK\]\s*/i, ''),
+                        mainIpa: (lines[i+1] && lines[i+1].startsWith('[')) ? lines[i+1] : '',
+                        mainEn: '',
+                        explanation: '',
+                        examples: []
+                    };
+                    
+                    // 英語訳の行を自動セット
+                    let nextIdx = (lines[i+1] && lines[i+1].startsWith('[')) ? i + 2 : i + 1;
+                    if (lines[nextIdx] && !lines[nextIdx].startsWith('[') && !lines[nextIdx].startsWith('※') && !lines[nextIdx].startsWith('•')) {
+                        currentChunk.mainEn = lines[nextIdx];
                     }
+                    continue;
                 }
 
-                if (!currentBlock) {
-                    currentBlock = [];
-                }
-                currentBlock.push(line);
-            }
-            if (currentBlock) {
-                chunkBlocks.push(currentBlock);
-            }
+                if (!currentChunk) continue;
 
-            let addedCount = 0;
+                // [EX] (例文) の始まりを検知
+                if (line.toUpperCase().startsWith('[EX]')) {
+                    let exFr = line.replace(/^\[EX\]\s*/i, '');
+                    let exIpa = (lines[i+1] && lines[i+1].startsWith('[')) ? lines[i+1] : '';
+                    let exEnIdx = (lines[i+1] && lines[i+1].startsWith('[')) ? i + 2 : i + 1;
+                    let exEn = lines[exEnIdx] || '';
 
-            // 完全に仕分けされた1セットずつを綺麗にマッピング
-            chunkBlocks.forEach(block => {
-                if (block.length < 3) return;
+                    currentChunk.examples.push({
+                        fr: exFr,
+                        ipa: exIpa,
+                        en: exEn
+                    });
 
-                // 1. 先頭から「※」や「•」が出る直前までを【メイン情報】とする
-                let mainFr = block[0];
-                let mainIpa = block[1].startsWith('[') ? block[1] : '';
-                let mainEn = '';
-                
-                let firstNoteIdx = block.findIndex(l => l.startsWith('※') || l.startsWith('•'));
-                if (firstNoteIdx === -1) firstNoteIdx = block.length; // 説明文が無いイレギュラーケース対応
-
-                // メインの英訳を探す（発音記号の次から説明文の手前までの間にある、プレーンな英文字の行）
-                for (let k = 2; k < firstNoteIdx; k++) {
-                    if (block[k] && !block[k].startsWith('[') && block[k].match(/[a-zA-Z]/)) {
-                        mainEn = block[k];
-                        break;
-                    }
+                    // 読み飛ばし
+                    if (lines[i+1] && lines[i+1].startsWith('[')) i++;
+                    i++; 
+                    continue;
                 }
 
-                // 2. 「※」や「•」がついている行だけを集めて【説明ノート】とする
-                let notes = block.filter(l => l.startsWith('※') || l.startsWith('•'));
-                let explanation = notes.join('\n');
-
-                // 3. 最初に出てきた「説明文（※、•）」のインデックスよりも【後ろにある行】をすべて例文エリアとする！
-                let examples = [];
-                if (firstNoteIdx !== block.length) {
-                    let examplePartLines = block.slice(firstNoteIdx + notes.length);
-
-                    // 例文パートから 3行1セット（フランス語文 → 発音記号 → 英訳）をきれいに抜き出す
-                    for (let m = 0; m < examplePartLines.length; m++) {
-                        let currentLine = examplePartLines[m];
-                        
-                        // プレーンなフランス語で、かつ次が発音記号 [ で始まるなら例文のスタート
-                        if (currentLine && !currentLine.startsWith('[') && examplePartLines[m+1] && examplePartLines[m+1].startsWith('[')) {
-                            let exFr = currentLine;
-                            let exIpa = examplePartLines[m+1];
-                            let exEn = examplePartLines[m+2] || '';
-                            
-                            examples.push({
-                                fr: exFr,
-                                ipa: exIpa,
-                                en: exEn
-                            });
-                            m += 2; // 3行分ジャンプ
+                // 解説文（※ や •）やその他雑多なメモを解説欄に蓄積
+                if (line !== currentChunk.mainFr && line !== currentChunk.mainIpa && line !== currentChunk.mainEn) {
+                    if (!line.startsWith('[')) {
+                        if (currentChunk.explanation) {
+                            currentChunk.explanation += '\n' + line;
+                        } else {
+                            currentChunk.explanation = line;
                         }
                     }
                 }
+            }
 
-                // 重複ガード
-                if (!globalData.chunks.some(c => c.mainFr === mainFr)) {
-                    globalData.chunks.push({
-                        mainFr: mainFr,
-                        mainIpa: mainIpa,
-                        mainEn: mainEn,
-                        explanation: explanation,
-                        examples: examples
-                    });
-                    addedCount++;
-                }
-            });
+            // 最後の塊を保存
+            if (currentChunk) {
+                pushUniqueChunk(currentChunk);
+                addedCount++;
+            }
 
             saveData();
             renderListView();
             document.getElementById('raw-data').value = '';
-            alert(`Successfully processed and imported ${addedCount} new sets!`);
+            alert(`Processed successfully! Imported ${addedCount} sets.`);
             switchTab('list-panel');
+        }
+
+        function pushUniqueChunk(chunkObj) {
+            if (!globalData.chunks.some(c => c.mainFr === chunkObj.mainFr)) {
+                globalData.chunks.push(chunkObj);
+            }
         }
 
         function renderListView() {
@@ -523,7 +508,7 @@
                         </button>
                         
                         <div class="accordion-content" id="examples-${index}">
-                            ${examplesHtml || '<p style="color:#95a5a6; font-size:12px;">No examples parsed.</p>'}
+                            ${examplesHtml || '<p style="color:#95a5a6; font-size:12px;">No examples found.</p>'}
                         </div>
 
                         <div class="item-footer-controls">
@@ -580,7 +565,7 @@
 
         function toggleCardFlip() {
             const fc = document.getElementById('flashcard');
-            fc.toggle('flipped');
+            fc.classList.toggle('flipped');
             
             if (fc.classList.contains('flipped') && currentCardIndex < flashcardQueue.length) {
                 const enText = flashcardQueue[currentCardIndex].en;
