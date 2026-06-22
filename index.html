@@ -116,7 +116,7 @@
         <div class="btn-group">
             <button class="btn-play" id="btn-listen">🔊 Listen to Model</button>
             <button class="btn-stop-tts" id="btn-stop-tts">⏸️ Pause / Resume</button>
-            <button class="btn-youglish" id="btn-yg">📺 Search Selected Word on YouGlish</button>
+            <button class="btn-yg" id="btn-yg">📺 Search Selected Word on YouGlish</button>
         </div>
     </div>
 
@@ -160,6 +160,35 @@
         let audioChunks = [];
         let selectedTextViaTap = "";
 
+        // 🌟【自動セーブ・ロード処理】
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSavedTrainerData();
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.getVoices();
+            }
+        });
+
+        // 入力するたびにテキストを自動セーブ
+        textInput.addEventListener('input', saveTrainerData);
+
+        function saveTrainerData() {
+            localStorage.setItem('reading_trainer_text', textInput.value);
+            localStorage.setItem('reading_trainer_lang', getSelectedLanguage());
+        }
+
+        function loadSavedTrainerData() {
+            const savedText = localStorage.getItem('reading_trainer_text');
+            const savedLang = localStorage.getItem('reading_trainer_lang');
+
+            if (savedText !== null) {
+                textInput.value = savedText;
+            }
+            if (savedLang !== null) {
+                const targetRadio = document.querySelector(`input[name="language"][value="${savedLang}"]`);
+                if (targetRadio) targetRadio.checked = true;
+            }
+        }
+
         textInput.addEventListener('mouseup', saveSelection);
         textInput.addEventListener('touchend', saveSelection);
         function saveSelection() {
@@ -169,6 +198,7 @@
         document.querySelectorAll('input[name="language"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 selectedTextViaTap = "";
+                saveTrainerData(); // 言語変更時も保存
                 if ('speechSynthesis' in window) {
                     window.speechSynthesis.cancel();
                     window.speechSynthesis.getVoices(); 
@@ -200,7 +230,6 @@
                 const allVoices = window.speechSynthesis.getVoices();
                 
                 if (currentLang === 'fr') {
-                    // 【アメリちゃん一本釣り】
                     const amelie = allVoices.find(v => {
                         const n = v.name.toLowerCase();
                         return n.includes('amélie') || n.includes('amelie');
@@ -212,15 +241,11 @@
                         if (cleanFr.length > 0) utterance.voice = cleanFr[0];
                     }
                 } else if (currentLang === 'en') {
-                    // 🌟【Samantha一本釣りロジック】
-                    // 拡張版（Enhanced）を優先するため、逆順（後ろのサマンサ）から探します
                     const samanthas = allVoices.filter(v => v.name.toLowerCase().includes('samantha'));
                     
                     if (samanthas.length > 0) {
-                        // 2つ以上見つかれば、より高音質な拡張版である確率が高い「最後に見つかったサマンサ」をセット
                         utterance.voice = samanthas[samanthas.length - 1];
                     } else {
-                        // 防御用：ノイズ系（Rocko, Shelley, Grandma, Grandpa, Jesterなど）を徹底除外
                         const cleanEn = allVoices.filter(v => {
                             const n = v.name.toLowerCase();
                             return v.lang.toLowerCase().startsWith('en') && 
