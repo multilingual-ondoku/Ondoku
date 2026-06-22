@@ -242,67 +242,11 @@
         let globalData = { chunks: [], verbs: [] };
         let flashcardQueue = [];
         let currentCardIndex = 0;
-        let cachedVoice = null;
-
-        // --- ANTI-iOS BUG: PERSISTENT VOICE FINDER ---
-        function findBestFrenchVoice() {
-            if (!('speechSynthesis' in window)) return null;
-            const voices = window.speechSynthesis.getVoices();
-            
-            // 1. Target Aurélie or Audrey directly
-            let voice = voices.find(v => {
-                const name = v.name.toLowerCase();
-                return v.lang.toLowerCase().startsWith('fr') && (name.includes('aurélie') || name.includes('aurelie') || name.includes('audrey'));
-            });
-            
-            // 2. Fallback to Siri
-            if (!voice) voice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && v.name.toLowerCase().includes('siri'));
-            
-            // 3. Fallback to Premium assets
-            if (!voice) voice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && (v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced')));
-            
-            // 4. Fallback to any non-male voice to avoid default Thomas robot
-            if (!voice) voice = voices.find(v => v.lang.toLowerCase().startsWith('fr') && !v.name.toLowerCase().includes('thomas') && !v.name.toLowerCase().includes('nicolas'));
-            
-            // 5. Ultimate fallback
-            if (!voice) voice = voices.find(v => v.lang.toLowerCase().startsWith('fr'));
-            
-            return voice;
-        }
-
-        // Keep polling the system until iOS decides to release the real voice list
-        function initVoiceSystem() {
-            if (!('speechSynthesis' in window)) return;
-            
-            cachedVoice = findBestFrenchVoice();
-            
-            // Interval loop: force iOS Safari to refresh its voice list every 250ms until Aurélie is captured
-            let attempts = 0;
-            const voiceInterval = setInterval(() => {
-                window.speechSynthesis.getVoices(); // Force load
-                let testVoice = findBestFrenchVoice();
-                if (testVoice) {
-                    cachedVoice = testVoice;
-                    // If we successfully broke the robot cache and got a premium voice, clear interval
-                    if (testVoice.name.toLowerCase().includes('aurélie') || testVoice.name.toLowerCase().includes('aurelie') || testVoice.name.toLowerCase().includes('siri')) {
-                        clearInterval(voiceInterval);
-                    }
-                }
-                attempts++;
-                if (attempts > 20) clearInterval(voiceInterval); // Safety stop after 5 seconds
-            }, 250);
-
-            if (window.speechSynthesis.onvoiceschanged !== undefined) {
-                window.speechSynthesis.onvoiceschanged = () => {
-                    cachedVoice = findBestFrenchVoice();
-                };
-            }
-        }
+        let currentAudio = null; // Track network audio stream
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedData();
             renderListView();
-            initVoiceSystem();
         });
 
         function switchTab(panelId) {
@@ -317,25 +261,28 @@
             }
         }
 
+        // --- GOOGLE TTS NETWORKING ENGINE (BYPASSES ALL iOS ROBOT BUGS) ---
         function speakFrench(text) {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); 
-                
-                let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim(); 
-                const utterance = new SpeechSynthesisUtterance(cleanText);
-                utterance.lang = 'fr-FR';
-                utterance.rate = 0.90; 
-                utterance.pitch = 1.0; 
-
-                // Try one immediate live lookup to grab the fresh asset
-                let liveVoice = findBestFrenchVoice();
-                if (liveVoice) cachedVoice = liveVoice;
-
-                if (cachedVoice) {
-                    utterance.voice = cachedVoice;
+            try {
+                // Stop any playing audio immediately
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
                 }
 
-                window.speechSynthesis.speak(utterance);
+                let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim(); 
+                if (!cleanText) return;
+
+                // Call Google's pristine Translation voice engine directly
+                const encText = encodeURIComponent(cleanText);
+                const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=fr&client=tw-ob&q=${encText}`;
+                
+                currentAudio = new Audio(googleTtsUrl);
+                currentAudio.play().catch(e => {
+                    console.log("Audio playback user-gesture requirement trigger:", e);
+                });
+            } catch (err) {
+                console.error("Network audio engine issue:", err);
             }
         }
 
@@ -531,7 +478,8 @@
             
             document.getElementById('flashcard').classList.remove('flipped');
             
-            setTimeout(() => { speakFrench(card.fr); }, 300);
+            // Auto play with natural delay for networking
+            setTimeout(() => { speakFrench(card.fr); }, 400);
         }
 
         function toggleCardFlip() {
