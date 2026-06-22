@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>French Chunk & Verb Trainer</title>
+    <script async src="https://youglish.com/public/widget/widget.js" charset="utf-8"></script>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -121,7 +122,7 @@
         .card-container {
             perspective: 1000px;
             width: 100%;
-            height: 220px;
+            height: 230px;
             margin: 20px 0;
         }
         .flashcard {
@@ -146,7 +147,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 15px;
             box-sizing: border-box;
             text-align: center;
         }
@@ -159,7 +160,7 @@
             color: white;
             transform: rotateY(180deg);
         }
-        .card-fr { font-size: 22px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; }
+        .card-fr { font-size: 22px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
         .card-en { font-size: 20px; font-weight: 500; color: #ecf0f1; }
         
         .card-controls {
@@ -181,6 +182,17 @@
         
         .progress-text { text-align: center; font-weight: bold; margin-top: 10px; color: #7f8c8d; }
         .total-counter { text-align: center; font-size: 13px; color: #7f8c8d; margin-bottom: 10px; font-weight: bold; }
+
+        /* Invisible but functional container for inkless loading */
+        #yg-widget-container {
+            width: 260px;
+            height: 40px;
+            margin-top: 5px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+            background: #fafafa;
+        }
     </style>
 </head>
 <body>
@@ -200,7 +212,6 @@
             <p style="font-size: 13px; color: #7f8c8d; margin-top: 0;">This will be cumulative. New items will be added to your existing list!</p>
             <textarea id="raw-data" placeholder="Paste the text from ChatGPT here..."></textarea>
             <button class="btn-action" onclick="processData()">⚡ Add to My Study Set</button>
-            
             <button class="btn-danger" onclick="clearAllData()">🗑️ Clear All Saved Data</button>
         </div>
     </div>
@@ -218,6 +229,10 @@
                     <div class="card-face card-front">
                         <div class="card-fr" id="card-front-text">Bonjour</div>
                         <button class="btn-speak-mini" id="btn-card-audio" onclick="event.stopPropagation(); speakCardCurrent()">🔊</button>
+                        
+                        <div id="yg-widget-container" onclick="event.stopPropagation();">
+                            <div id="yg-widget"></div>
+                        </div>
                     </div>
                     <div class="card-face card-back">
                         <div class="card-en" id="card-back-text">Hello</div>
@@ -239,16 +254,30 @@
         let globalData = { chunks: [], verbs: [] };
         let flashcardQueue = [];
         let currentCardIndex = 0;
+        let ygWidget = null;
+        let ygReady = false;
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSavedData();
             renderListView();
-            
-            // Warm up system speech engines on load
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.getVoices();
-            }
+            initYouGlish();
         });
+
+        // Initialize Embedded YouGlish Player
+        function initYouGlish() {
+            // Check if widget script loaded from YouGlish network
+            setTimeout(() => {
+                if (typeof YG !== 'undefined') {
+                    ygWidget = new YG("yg-widget", {
+                        width: 260,
+                        components: 4, // Text + playback controls only, no overhead clutter
+                        autoStart: 1,  // Fire immediately upon search call
+                        restricTo: "fr" // Lock engine directly to French accents
+                    });
+                    ygReady = true;
+                }
+            }, 1000);
+        }
 
         function switchTab(panelId) {
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -262,61 +291,22 @@
             }
         }
 
-        // --- THE DEFINITIVE ROBOT-EXCLUSION SPEECH ENGINE ---
+        // Native Native-Speaker Playback caller
         function speakFrench(text) {
-            if (!('speechSynthesis' in window)) return;
-            
-            window.speechSynthesis.cancel(); // Reset engine
-
-            let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim(); 
+            let cleanText = text.replace(/^\d+[\.\s、]+/g, '').trim();
+            // Remove text markers that confuse YouGlish queries
+            cleanText = cleanText.replace(/[\[\]\(\)]/g, ''); 
             if (!cleanText) return;
 
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = 'fr-FR';
-            utterance.rate = 0.90; 
-            utterance.pitch = 1.0; 
-
-            const voices = window.speechSynthesis.getVoices();
-            
-            // 🚫 CRITICAL BLACKLIST: Completely ban Thomas and Nicolas (Robot-boys)
-            const filteredVoices = voices.filter(v => {
-                const name = v.name.toLowerCase();
-                return v.lang.toLowerCase().startsWith('fr') && !name.includes('thomas') && !name.includes('nicolas');
-            });
-
-            let targetVoice = null;
-
-            if (filteredVoices.length > 0) {
-                // 1. First priority: Aurélie or Audrey downloaded assets
-                targetVoice = filteredVoices.find(v => {
-                    const n = v.name.toLowerCase();
-                    return n.includes('aurélie') || n.includes('aurelie') || n.includes('audrey');
-                });
-
-                // 2. Second priority: Siri (High-quality female asset)
-                if (!targetVoice) {
-                    targetVoice = filteredVoices.find(v => v.name.toLowerCase().includes('siri'));
-                }
-
-                // 3. Third priority: Any premium/enhanced tagged options left
-                if (!targetVoice) {
-                    targetVoice = filteredVoices.find(v => v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced'));
-                }
-
-                // 4. Ultimate fallback: Just use the first non-robot voice in the list
-                if (!targetVoice) {
-                    targetVoice = filteredVoices[0];
-                }
+            if (ygReady && ygWidget) {
+                ygWidget.search(cleanText, "fr");
             } else {
-                // Total emergency fallback if list filtering broke completely
-                targetVoice = voices.find(v => v.lang.toLowerCase().startsWith('fr'));
+                // If YouGlish server has micro-delay, look it up again
+                if (typeof YG !== 'undefined' && !ygWidget) {
+                    ygWidget = new YG("yg-widget", { width: 260, components: 4, autoStart: 1, restricTo: "fr" });
+                    ygWidget.search(cleanText, "fr");
+                }
             }
-
-            if (targetVoice) {
-                utterance.voice = targetVoice;
-            }
-
-            window.speechSynthesis.speak(utterance);
         }
 
         function loadSavedData() {
@@ -497,13 +487,16 @@
         function showCard() {
             if (flashcardQueue.length === 0 || currentCardIndex >= flashcardQueue.length) {
                 document.getElementById('card-front-text').textContent = "🎉 Review Completed!";
-                document.getElementById('card-back-text').textContent = "Excellent cumulative practice!";
+                document.getElementById('card-back-text').textContent = "Excellent practice!";
                 document.getElementById('card-progress').textContent = "Completed!";
                 document.getElementById('btn-card-audio').style.display = 'none';
+                document.getElementById('yg-widget-container').style.display = 'none';
                 return;
             }
 
             document.getElementById('btn-card-audio').style.display = 'inline-flex';
+            document.getElementById('yg-widget-container').style.display = 'block';
+            
             const card = flashcardQueue[currentCardIndex];
             document.getElementById('card-front-text').textContent = card.fr;
             document.getElementById('card-back-text').textContent = card.en;
@@ -511,7 +504,7 @@
             
             document.getElementById('flashcard').classList.remove('flipped');
             
-            // Auto play with physical device trigger allowance
+            // Auto-trigger native engine on card switch without changing view
             setTimeout(() => { speakFrench(card.fr); }, 300);
         }
 
