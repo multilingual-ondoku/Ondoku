@@ -26,8 +26,8 @@
         }
         .voice-inspector h4 { margin: 0 0 5px 0; color: #4a5568; }
         .voice-list-grid { display: flex; flex-wrap: wrap; gap: 5px; }
-        .voice-tag { background: #fff; padding: 3px 8px; border-radius: 4px; border: 1px solid #e2e8f0; font-weight: bold; }
-        .voice-tag.active { background: #3182ce; color: white; border-color: #2b6cb0; }
+        .voice-tag { background: #fff; padding: 3px 8px; border-radius: 4px; border: 1px solid #e2e8f0; font-weight: bold; color: #4a5568; }
+        .voice-tag.active { background: #2ecc71; color: white; border-color: #27ae60; }
 
         .tabs {
             display: flex;
@@ -203,7 +203,7 @@
 
     <h1>📇 French Chunk & Verb Learner</h1>
     
-    <!-- 🔍 Debug Voice Box: Displays list of loaded iOS voice assets -->
+    <!-- Debug Voice Box -->
     <div class="voice-inspector">
         <h4>🎙️ Detected French Voices (Safari Available):</h4>
         <div class="voice-list-grid" id="detected-voice-list">Loading device voices...</div>
@@ -271,34 +271,36 @@
             initVoiceListing();
         });
 
-        // Trigger voice sync hooks for iOS Safari load quirks
         function initVoiceListing() {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.getVoices();
-                // Safari voice asynchronously arrays loaded callback
                 window.speechSynthesis.onvoiceschanged = renderVoiceTags;
-                setTimeout(renderVoiceTags, 500); // Fail-safe timer call
+                setTimeout(renderVoiceTags, 500); 
             }
         }
 
         function renderVoiceTags() {
             if (!('speechSynthesis' in window)) return;
             const voices = window.speechSynthesis.getVoices();
-            const frVoices = voices.filter(v => v.lang.toLowerCase().startsWith('fr'));
+            
+            // Only capture French speakers or explicit iOS matches
+            const frVoices = voices.filter(v => v.lang.toLowerCase().startsWith('fr') || v.name.toLowerCase().includes('amélie') || v.name.toLowerCase().includes('amelie'));
             const container = document.getElementById('detected-voice-list');
             
             if (frVoices.length === 0) {
-                container.innerHTML = '<span style="color:#e74c3c;">No French voices found. Using Safari system fallback.</span>';
+                container.innerHTML = '<span style="color:#e74c3c;">No French voices mapped.</span>';
                 return;
             }
 
-            // Detect currently selected voice to give active visual indicators
             let currentSelection = getBestFrenchVoice(voices);
 
             container.innerHTML = '';
             frVoices.forEach(v => {
                 let isActive = currentSelection && currentSelection.name === v.name;
-                container.innerHTML += `<span class="voice-tag ${isActive ? 'active' : ''}">${v.name}</span>`;
+                // Avoid rendering duplicate tags for cleaner tracking
+                if (!container.innerHTML.includes(`>${v.name}<`)) {
+                    container.innerHTML += `<span class="voice-tag ${isActive ? 'active' : ''}">${v.name}</span>`;
+                }
             });
         }
 
@@ -315,23 +317,25 @@
         }
 
         function getBestFrenchVoice(voices) {
-            const frVoices = voices.filter(v => v.lang.toLowerCase().startsWith('fr'));
-            if (frVoices.length === 0) return null;
-
-            // Target premium downloader markers exactly as iOS maps them natively
-            let match = frVoices.find(v => {
+            // Absolute Lock: Target "Amélie" or "Amelie" since iOS Safari explicitly verified it's ready
+            let match = voices.find(v => {
                 const n = v.name.toLowerCase();
-                return n.includes('aurélie') || n.includes('aurelie') || n.includes('audrey');
+                return n.includes('amélie') || n.includes('amelie');
             });
             if (match) return match;
 
-            match = frVoices.find(v => v.name.toLowerCase().includes('siri'));
+            // Secondary backups just in case
+            const frVoices = voices.filter(v => v.lang.toLowerCase().startsWith('fr'));
+            match = frVoices.find(v => v.name.toLowerCase().includes('aurélie') || v.name.toLowerCase().includes('aurelie'));
             if (match) return match;
 
-            match = frVoices.find(v => v.name.toLowerCase().includes('premium') || v.name.toLowerCase().includes('enhanced'));
-            if (match) return match;
+            // Pure defensive fallbacks to eliminate Eloquence jokes
+            const cleanFr = frVoices.filter(v => {
+                const n = v.name.toLowerCase();
+                return !n.includes('shelley') && !n.includes('grandma') && !n.includes('rocko') && !n.includes('eddy');
+            });
 
-            return frVoices[0];
+            return cleanFr.length > 0 ? cleanFr[0] : (frVoices.length > 0 ? frVoices[0] : null);
         }
 
         function speakFrench(text) {
@@ -343,7 +347,7 @@
 
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'fr-FR';
-            utterance.rate = 0.90; 
+            utterance.rate = 0.88; // Slightly dialed back for maximum clear study pacing
             utterance.pitch = 1.0; 
 
             const voices = window.speechSynthesis.getVoices();
@@ -354,7 +358,6 @@
             }
 
             window.speechSynthesis.speak(utterance);
-            // Dynamic refresh tags style indicator adjustments on trigger calls
             renderVoiceTags();
         }
 
