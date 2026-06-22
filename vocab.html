@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>French Chunk & Verb Trainer</title>
+    <title>French Chunk Trainer</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -76,7 +76,6 @@
         }
         .btn-danger:hover { opacity: 1; }
 
-        /* チャンク全体のコンテナ */
         .chunk-block {
             background: white;
             padding: 20px;
@@ -99,7 +98,6 @@
         .meaning-text { color: #27ae60; font-weight: bold; font-size: 17px; margin: 6px 0; }
         .note-text { color: #e67e22; font-size: 13px; margin: 10px 0; white-space: pre-line; line-height: 1.4; background: #fff5e6; padding: 10px; border-radius: 6px; }
         
-        /* 📄 折りたたみ（アコーディオン）用のスタイル */
         .accordion-toggle {
             background: #f1f2f6;
             color: #57606f;
@@ -124,7 +122,6 @@
             display: block;
         }
 
-        /* 例文カードのデザイン */
         .sentence-item {
             background: #f8f9fa;
             padding: 12px;
@@ -214,22 +211,25 @@
         <button class="tab-btn" onclick="switchTab('card-panel')">📇 Flashcards (Examples)</button>
     </div>
 
+    <!-- 1. Input Panel -->
     <div id="input-panel" class="panel active">
         <div class="chunk-block">
             <h3>Paste ChatGPT Full Set Output</h3>
-            <p style="font-size: 13px; color: #7f8c8d; margin-top: 0;">Pasted text will be structured automatically into Head and Folded examples.</p>
+            <p style="font-size: 13px; color: #7f8c8d; margin-top: 0;">You can paste multiple chunks sets all together!</p>
             <textarea id="raw-data" placeholder="Paste the text from ChatGPT here..."></textarea>
             <button class="btn-action" onclick="processStructuredData()">⚡ Add to My Study Set</button>
             <button class="btn-danger" onclick="clearAllData()">🗑️ Clear All Saved Data</button>
         </div>
     </div>
 
+    <!-- 2. List Panel -->
     <div id="list-panel" class="panel">
         <div id="list-container">
             <p style="text-align: center; color: #7f8c8d; padding: 20px;">No data loaded. Go to "Add Data" tab first!</p>
         </div>
     </div>
 
+    <!-- 3. Card Panel -->
     <div id="card-panel" class="panel">
         <div id="card-view-wrapper" style="display: none;">
             <div class="card-container" onclick="toggleCardFlip()">
@@ -255,7 +255,7 @@
     </div>
 
     <script>
-        let globalData = { chunks: [] }; // 構造化した大本のデータベース
+        let globalData = { chunks: [] }; 
         let flashcardQueue = [];
         let currentCardIndex = 0;
 
@@ -312,7 +312,7 @@
         }
 
         function loadSavedData() {
-            const saved = localStorage.getItem('french_chunk_structured_data');
+            const saved = localStorage.getItem('french_chunk_structured_data_v2');
             if (saved) {
                 try {
                     globalData = JSON.parse(saved);
@@ -325,7 +325,7 @@
         }
 
         function saveData() {
-            localStorage.setItem('french_chunk_structured_data', JSON.stringify(globalData));
+            localStorage.setItem('french_chunk_structured_data_v2', JSON.stringify(globalData));
             updateCounters();
         }
 
@@ -335,7 +335,7 @@
 
         function clearAllData() {
             if(confirm("Are you sure you want to delete ALL data?")) {
-                localStorage.removeItem('french_chunk_structured_data');
+                localStorage.removeItem('french_chunk_structured_data_v2');
                 globalData = { chunks: [] };
                 flashcardQueue = [];
                 updateCounters();
@@ -358,7 +358,6 @@
             }
         }
 
-        // フランス語メイン、英訳メイン、および各例文の編集に対応
         function editChunkSet(index) {
             const set = globalData.chunks[index];
             
@@ -370,7 +369,6 @@
             set.mainFr = newFr.trim();
             set.mainEn = newEn.trim();
 
-            // 例文3つについても個別にクイック確認・編集
             set.examples.forEach((ex, idx) => {
                 const exFr = prompt(`✏️ Edit [Example ${idx+1}] French:`, ex.fr);
                 if (exFr !== null) ex.fr = exFr.trim();
@@ -383,88 +381,100 @@
             flashcardQueue = [];
         }
 
-        /* 🌟 ユーザー指定フォーマット専用の超高精度パースエンジン */
+        /* 🌟 複数セットを完全に切り分ける大改造パースエンジン */
         function processStructuredData() {
             const rawText = document.getElementById('raw-data').value;
             if (!rawText.trim()) return;
 
-            const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            // まず、あからさまに別々の単語ブロック（2つ以上の改行、または説明の後に別のフランス語が始まる境界）を大まかに分解
+            // 特徴として「フランス語行の次の行が必ず[発音記号]である」性質を利用してブロック化
+            const lines = rawText.split('\n').map(l => l.trim());
             
-            if (lines.length < 3) {
-                alert("Data format seems too short. Make sure you copy the entire block.");
-                return;
-            }
+            let rawBlocks = [];
+            let currentBlock = [];
 
-            // 1. メイン情報パーツの切り出し
-            let mainFr = lines[0];
-            let mainIpa = lines[1].startsWith('[') ? lines[1] : '';
-            
-            // 英訳のサーチ
-            let mainEn = '';
-            let enIndex = mainIpa ? 2 : 1;
-            if (lines[enIndex] && !lines[enIndex].startsWith('※') && !lines[enIndex].startsWith('•')) {
-                mainEn = lines[enIndex];
-            }
-
-            // 説明ノート文のまとめ
-            let notes = [];
-            lines.forEach(l => {
-                if (l.startsWith('※') || l.startsWith('•')) {
-                    notes.push(l);
-                }
-            });
-            let explanation = notes.join('\n');
-
-            // 2. 残りの行から「フランス語行 → 発音記号行 → 英訳行」の3連リピートパターン（例文1〜3）を完璧に抽出
-            let examples = [];
-            
-            // 説明文より後ろにある、純粋な例文と思われるペアを探す
-            for (let i = 2; i < lines.length; i++) {
-                let line = lines[i];
-                
-                // フランス語の文、かつ説明記号でも発音記号でもなく、メインタイトルでもない行
-                if (line !== mainFr && !line.startsWith('[') && !line.startsWith('※') && !line.startsWith('•') && line !== mainEn) {
-                    
-                    // 次の行が発音記号、その次が英語の塊なら完璧な3連続マッチ
-                    if (lines[i+1] && lines[i+1].startsWith('[') && lines[i+2]) {
-                        examples.push({
-                            fr: line,
-                            ipa: lines[i+1],
-                            en: lines[i+2]
-                        });
-                        i += 2; // インデックスを3行分進める
-                    } 
-                    // 発音記号をスキップして英語が直接来ているイレギュラー対応
-                    else if (lines[i+1] && !lines[i+1].startsWith('[') && !lines[i+1].startsWith('※') && !lines[i+1].startsWith('•') && lines[i+1].match(/[a-zA-Z]/)) {
-                        examples.push({
-                            fr: line,
-                            ipa: '',
-                            en: lines[i+1]
-                        });
-                        i += 1;
+            for (let i = 0; i < lines.length; i++) {
+                // 次の行が存在し、自分が普通の文で、次の行が [ で始まる場合、そこが新しい大きな塊のスタート地点
+                if (i < lines.length - 1 && !lines[i].startsWith('[') && !lines[i].startsWith('※') && !lines[i].startsWith('•') && lines[i+1].startsWith('[')) {
+                    // もしすでに直前のブロックに「例文」などのデータがたまっている状態で、かつメイン項目がすでにあるなら、別の塊とみなして一度区切る
+                    if (currentBlock.length > 0 && currentBlock.some(l => l.startsWith('※') || l.startsWith('•'))) {
+                        rawBlocks.push(currentBlock);
+                        currentBlock = [];
                     }
                 }
+                if (lines[i].length > 0) {
+                    currentBlock.push(lines[i]);
+                }
+            }
+            if (currentBlock.length > 0) {
+                rawBlocks.push(currentBlock);
             }
 
-            // データのダブり防止ガード
-            if (globalData.chunks.some(c => c.mainFr === mainFr)) {
-                alert("This chunk already exists!");
-                return;
-            }
+            let addedCount = 0;
 
-            // データベースへ構造化保存
-            globalData.chunks.push({
-                mainFr: mainFr,
-                mainIpa: mainIpa,
-                mainEn: mainEn,
-                explanation: explanation,
-                examples: examples
+            // 分解した各ブロックを個別に解析してデータベースに格納
+            rawBlocks.forEach(blockLines => {
+                if (blockLines.length < 3) return;
+
+                let mainFr = blockLines[0];
+                let mainIpa = blockLines[1].startsWith('[') ? blockLines[1] : '';
+                
+                let mainEn = '';
+                let enIndex = mainIpa ? 2 : 1;
+                if (blockLines[enIndex] && !blockLines[enIndex].startsWith('※') && !blockLines[enIndex].startsWith('•')) {
+                    mainEn = blockLines[enIndex];
+                }
+
+                let notes = [];
+                blockLines.forEach(l => {
+                    if (l.startsWith('※') || l.startsWith('•')) {
+                        notes.push(l);
+                    }
+                });
+                let explanation = notes.join('\n');
+
+                let examples = [];
+                
+                // 説明文より後ろの位置から、例文トリオ（仏・音・英）を探す
+                for (let i = 2; i < blockLines.length; i++) {
+                    let line = blockLines[i];
+                    
+                    if (line !== mainFr && !line.startsWith('[') && !line.startsWith('※') && !line.startsWith('•') && line !== mainEn) {
+                        if (blockLines[i+1] && blockLines[i+1].startsWith('[') && blockLines[i+2]) {
+                            examples.push({
+                                fr: line,
+                                ipa: blockLines[i+1],
+                                en: blockLines[i+2]
+                            });
+                            i += 2; 
+                        } else if (blockLines[i+1] && !blockLines[i+1].startsWith('[') && !blockLines[i+1].startsWith('※') && !blockLines[i+1].startsWith('•') && blockLines[i+1].match(/[a-zA-Z]/)) {
+                            examples.push({
+                                fr: line,
+                                ipa: '',
+                                en: blockLines[i+1]
+                            });
+                            i += 1;
+                        }
+                    }
+                }
+
+                // 重複ガード
+                if (!globalData.chunks.some(c => c.mainFr === mainFr)) {
+                    globalData.chunks.push({
+                        mainFr: mainFr,
+                        mainIpa: mainIpa,
+                        mainEn: mainEn,
+                        explanation: explanation,
+                        examples: examples
+                    });
+                    addedCount++;
+                }
             });
 
             saveData();
             renderListView();
             document.getElementById('raw-data').value = '';
-            alert("Perfectly imported! Check 'Daily List' and 'Flashcards'.");
+            alert(`Successfully processed and imported ${addedCount} new sets!`);
             switchTab('list-panel');
         }
 
@@ -480,7 +490,6 @@
             globalData.chunks.forEach((chunk, index) => {
                 let safeMainFr = chunk.mainFr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 
-                // 例文たちのHTML生成
                 let examplesHtml = '';
                 chunk.examples.forEach((ex) => {
                     let safeExFr = ex.fr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -493,7 +502,6 @@
                     `;
                 });
 
-                // アコーディオン構造でリストを出力
                 container.innerHTML += `
                     <div class="chunk-block">
                         <div class="clickable-fr" onclick="speakFrench('${safeMainFr}')">${chunk.mainFr}</div>
@@ -512,14 +520,13 @@
 
                         <div class="item-footer-controls">
                             <button class="btn-emoji-only" onclick="editChunkSet(${index})">✏️</button>
-                            <button class="btn-emoji-only" onclick="deleteChunk(index)">🗑️</button>
+                            <button class="btn-emoji-only" onclick="deleteChunk(${index})">🗑️</button>
                         </div>
                     </div>
                 `;
             });
         }
 
-        /* 🌟 フラッシュカードは「例文のみ」を抽出してシャッフル */
         function initFlashcards() {
             if (globalData.chunks.length === 0) {
                 document.getElementById('card-view-wrapper').style.display = 'none';
@@ -531,7 +538,6 @@
             document.getElementById('card-empty-message').style.display = 'none';
 
             if (flashcardQueue.length === 0) {
-                // すべての登録データから「例文1〜3」のフレーズだけをかき集める
                 globalData.chunks.forEach(chunk => {
                     chunk.examples.forEach(ex => {
                         if (ex.fr && ex.en) {
@@ -540,7 +546,6 @@
                     });
                 });
                 
-                // カードを完全にランダムシャッフル
                 flashcardQueue.sort(() => Math.random() - 0.5);
                 currentCardIndex = 0;
             }
@@ -567,7 +572,7 @@
 
         function toggleCardFlip() {
             const fc = document.getElementById('flashcard');
-            fc.classList.toggle('flipped');
+            fc.toggle('flipped');
             
             if (fc.classList.contains('flipped') && currentCardIndex < flashcardQueue.length) {
                 const enText = flashcardQueue[currentCardIndex].en;
